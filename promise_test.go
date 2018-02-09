@@ -19,14 +19,24 @@ func TestNew(t *testing.T) {
 
 func TestPromise_Then(t *testing.T) {
 	var wg = &sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(3)
 
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
 		resolve("very complicated result")
 	})
 
 	promise.Then(func(data interface{}) {
-		t.Log(data)
+		t.Log("1")
+		wg.Done()
+	})
+
+	promise.Then(func(data interface{}) {
+		t.Log("2")
+		wg.Done()
+	})
+
+	promise.Then(func(data interface{}) {
+		t.Log("3")
 		wg.Done()
 	})
 
@@ -41,7 +51,7 @@ func TestPromise_Then(t *testing.T) {
 
 func TestPromise_Catch(t *testing.T) {
 	var wg = &sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(3)
 
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
 		reject(errors.New("very serious error"))
@@ -54,7 +64,39 @@ func TestPromise_Catch(t *testing.T) {
 	})
 
 	promise.Catch(func(error error) {
-		t.Log(error.Error())
+		t.Log("1")
+		wg.Done()
+	})
+
+	promise.Catch(func(error error) {
+		t.Log("2")
+		wg.Done()
+	})
+
+	promise.Catch(func(error error) {
+		t.Log("3")
+		wg.Done()
+	})
+
+	wg.Wait()
+}
+
+func TestPromise_Panic(t *testing.T) {
+	var wg = &sync.WaitGroup{}
+	wg.Add(1)
+
+	var promise = New(func(resolve func(interface{}), reject func(error)) {
+		panic("panicking")
+	})
+
+	promise.Then(func(data interface{}) {
+		wg.Done()
+		t.Fatal("THEN TRIGGERED")
+		t.Fail()
+	})
+
+	promise.Catch(func(error error) {
+		t.Log("Panic Recovered", error.Error())
 		wg.Done()
 	})
 
