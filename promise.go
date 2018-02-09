@@ -3,9 +3,9 @@ package promise
 import "errors"
 
 const (
-	PENDING = iota
-	FULFILLED
-	REJECTED
+	pending = iota
+	fulfilled
+	rejected
 )
 
 type Promise struct {
@@ -43,7 +43,7 @@ type Promise struct {
 
 func New(executor func(resolve func(interface{}), reject func(error))) *Promise {
 	var promise = &Promise{
-		state:    PENDING,
+		state:    pending,
 		executor: executor,
 		then:     make([]func(interface{}), 0),
 		catch:    make([]func(error), 0),
@@ -69,7 +69,7 @@ func (promise *Promise) resolve(resolution interface{}) {
 	for _, value := range promise.then {
 		value(promise.result)
 	}
-	promise.state = FULFILLED
+	promise.state = fulfilled
 }
 
 func (promise *Promise) reject(error error) {
@@ -82,7 +82,7 @@ func (promise *Promise) reject(error error) {
 	for _, value := range promise.catch {
 		value(promise.error)
 	}
-	promise.state = REJECTED
+	promise.state = rejected
 }
 
 func (promise *Promise) handlePanic() {
@@ -114,13 +114,13 @@ func (promise *Promise) Catch(rejection func(error error)) *Promise {
 }
 
 func (promise *Promise) IsPending() bool {
-	return promise.state == PENDING
+	return promise.state == pending
 }
 
 func (promise *Promise) IsFulfilled() bool {
-	return promise.state == FULFILLED
+	return promise.state == fulfilled
 }
 
 func (promise *Promise) IsRejected() bool {
-	return promise.state == REJECTED
+	return promise.state == rejected
 }
