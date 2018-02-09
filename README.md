@@ -11,4 +11,104 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
     
 ## Examples
 
-    
+### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/calculation/main.go)
+
+```go
+func main() {
+	var wg = &sync.WaitGroup{}
+	wg.Add(1)
+
+	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
+		var url = "https://httpbin.org/ip"
+
+		resp, err := http.Get(url)
+		defer resp.Body.Close()
+
+		if err != nil {
+			reject(err)
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			reject(err)
+		}
+
+		resolve(string(body))
+	})
+
+	requestPromise.Then(func(data interface{}) {
+		fmt.Println(data)
+		wg.Done()
+	})
+
+	requestPromise.Catch(func(error error) {
+		fmt.Println(error.Error())
+		wg.Done()
+	})
+
+	wg.Wait()
+}
+```
+
+### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
+```go
+func main() {
+	var wg = &sync.WaitGroup{}
+	wg.Add(1)
+
+	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
+		var url = "https://httpbin.org/ip"
+
+		resp, err := http.Get(url)
+		defer resp.Body.Close()
+
+		if err != nil {
+			reject(err)
+		}
+
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			reject(err)
+		}
+
+		resolve(string(body))
+	})
+
+	requestPromise.Then(func(data interface{}) {
+		fmt.Println(data)
+		wg.Done()
+	})
+
+	requestPromise.Catch(func(error error) {
+		fmt.Println(error.Error())
+		wg.Done()
+	})
+
+	wg.Wait()
+}
+```
+
+### [Chaining](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
+```go
+func main() {
+	var wg = &sync.WaitGroup{}
+	wg.Add(3)
+
+	var p = promise.New(func(resolve func(interface{}), reject func(error)) {
+		resolve(0)
+	})
+
+	p.Then(func(data interface{}) {
+		fmt.Println("I will execute first!")
+		wg.Done()
+	}).Then(func(data interface{}) {
+		fmt.Println("And I will execute second!")
+		wg.Done()
+	}).Then(func(data interface{}) {
+		fmt.Println("Oh I'm last :(")
+		wg.Done()
+	})
+
+	wg.Wait()
+}
+```
