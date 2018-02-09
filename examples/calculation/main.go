@@ -14,14 +14,12 @@ func findFactorial(n int) int {
 }
 
 func findFactorialPromise(n int) *promise.Promise {
-	var p = promise.New(func(resolve func(interface{}), reject func(error)) {
+	return promise.New(func(resolve func(interface{}), reject func(error)) {
 		resolve(findFactorial(n))
 	})
-	return p
 }
 
 func main() {
-
 	var wg = &sync.WaitGroup{}
 	wg.Add(3)
 
@@ -45,5 +43,4 @@ func main() {
 	})
 
 	wg.Wait()
-
 }
