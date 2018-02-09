@@ -11,8 +11,7 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
     
 ## Examples
 
-### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/calculation/main.go)
-
+### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
 func main() {
 	var wg = &sync.WaitGroup{}
@@ -50,37 +49,42 @@ func main() {
 }
 ```
 
-### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
+### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/calculation/main.go)
+
 ```go
+func findFactorial(n int) int {
+	if n == 1 {
+		return 1
+	}
+	return n * findFactorial(n-1)
+}
+
+func findFactorialPromise(n int) *promise.Promise {
+	return promise.New(func(resolve func(interface{}), reject func(error)) {
+		resolve(findFactorial(n))
+	})
+}
+
 func main() {
 	var wg = &sync.WaitGroup{}
-	wg.Add(1)
+	wg.Add(3)
 
-	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
-		var url = "https://httpbin.org/ip"
+	var factorial1 = findFactorialPromise(5)
+	var factorial2 = findFactorialPromise(10)
+	var factorial3 = findFactorialPromise(15)
 
-		resp, err := http.Get(url)
-		defer resp.Body.Close()
-
-		if err != nil {
-			reject(err)
-		}
-
-		body, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			reject(err)
-		}
-
-		resolve(string(body))
-	})
-
-	requestPromise.Then(func(data interface{}) {
-		fmt.Println(data)
+	factorial1.Then(func(data interface{}) {
+		fmt.Println("Result of 5! is", data)
 		wg.Done()
 	})
 
-	requestPromise.Catch(func(error error) {
-		fmt.Println(error.Error())
+	factorial2.Then(func(data interface{}) {
+		fmt.Println("Result of 10! is", data)
+		wg.Done()
+	})
+
+	factorial3.Then(func(data interface{}) {
+		fmt.Println("Result of 15! is", data)
 		wg.Done()
 	})
 
