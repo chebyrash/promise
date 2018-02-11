@@ -1,6 +1,9 @@
 package promise
 
-import "errors"
+import (
+	"errors"
+	"sync"
+)
 
 const (
 	pending = iota
@@ -23,11 +26,12 @@ type Promise struct {
 	// The resolve and reject functions, when called, resolve or reject
 	// the promise, respectively. The executor normally initiates some
 	// asynchronous work, and then, once that completes, either calls the
-	// resolve function to resolve the promise or else rejects it if an error occurred.
+	// resolve function to resolve the promise or else rejects it if
+	// an error or panic occurred.
 	executor func(resolve func(interface{}), reject func(error))
 
 	// Appends fulfillment to the promise,
-	// and returns a new promise
+	// and returns a new promise.
 	then []func(data interface{})
 
 	// Appends a rejection handler to the promise,
@@ -39,8 +43,12 @@ type Promise struct {
 
 	// Stores the error passed to reject()
 	error error
+
+	// Mutex protects against data race conditions.
+	mutex *sync.Mutex
 }
 
+// New instantiates and returns a *Promise object.
 func New(executor func(resolve func(interface{}), reject func(error))) *Promise {
 	var promise = &Promise{
 		state:    pending,
@@ -49,6 +57,7 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 		catch:    make([]func(error), 0),
 		result:   nil,
 		error:    nil,
+		mutex:    &sync.Mutex{},
 	}
 
 	go func() {
@@ -60,67 +69,93 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 }
 
 func (promise *Promise) resolve(resolution interface{}) {
-	if !promise.IsPending() {
+	if !promise.isPending() {
 		return
 	}
+
 	promise.result = resolution
-	for len(promise.then) == 0 {
-	}
+
+	promise.mutex.Lock()
 	for _, value := range promise.then {
 		value(promise.result)
 	}
 	promise.state = fulfilled
+	promise.mutex.Unlock()
 }
 
 func (promise *Promise) reject(error error) {
-	if !promise.IsPending() {
+	if !promise.isPending() {
 		return
 	}
+
 	promise.error = error
-	for len(promise.catch) == 0 {
-	}
+
+	promise.mutex.Lock()
 	for _, value := range promise.catch {
 		value(promise.error)
 	}
 	promise.state = rejected
+	promise.mutex.Unlock()
 }
 
 func (promise *Promise) handlePanic() {
-	r := recover()
+	var r = recover()
 	if r != nil {
 		promise.reject(errors.New(r.(string)))
 	}
 }
 
+func (promise *Promise) addThen(fulfillment func(data interface{})) {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
+	promise.then = append(promise.then, fulfillment)
+}
+
+func (promise *Promise) addCatch(rejection func(error error)) {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
+	promise.catch = append(promise.catch, rejection)
+}
+
+// Appends fulfillment handler to the promise, and returns a new promise.
 func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
-	if promise.IsPending() {
-		promise.then = append(promise.then, fulfillment)
-	}
-	if promise.IsFulfilled() {
+	if promise.isPending() {
+		promise.addThen(fulfillment)
+	} else if promise.isFulfilled() {
 		fulfillment(promise.result)
 	}
 	return promise
 }
 
+// Appends a rejection handler callback to the promise, and returns a new promise.
 func (promise *Promise) Catch(rejection func(error error)) *Promise {
-	if promise.IsPending() {
-		promise.catch = append(promise.catch, rejection)
-
-	}
-	if promise.IsRejected() {
+	if promise.isPending() {
+		promise.addCatch(rejection)
+	} else if promise.isRejected() {
 		rejection(promise.error)
 	}
 	return promise
 }
 
-func (promise *Promise) IsPending() bool {
+func (promise *Promise) isPending() bool {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
 	return promise.state == pending
 }
 
-func (promise *Promise) IsFulfilled() bool {
+func (promise *Promise) isFulfilled() bool {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
 	return promise.state == fulfilled
 }
 
-func (promise *Promise) IsRejected() bool {
+func (promise *Promise) isRejected() bool {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
 	return promise.state == rejected
 }

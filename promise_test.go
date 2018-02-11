@@ -28,19 +28,13 @@ func TestPromise_Then(t *testing.T) {
 	promise.Then(func(data interface{}) {
 		t.Log("1")
 		wg.Done()
-	})
-
-	promise.Then(func(data interface{}) {
+	}).Then(func(data interface{}) {
 		t.Log("2")
 		wg.Done()
-	})
-
-	promise.Then(func(data interface{}) {
+	}).Then(func(data interface{}) {
 		t.Log("3")
 		wg.Done()
-	})
-
-	promise.Catch(func(error error) {
+	}).Catch(func(error error) {
 		wg.Done()
 		t.Fatal("CATCH TRIGGERED")
 		t.Fail()
@@ -61,19 +55,13 @@ func TestPromise_Catch(t *testing.T) {
 		wg.Done()
 		t.Fatal("THEN TRIGGERED")
 		t.Fail()
-	})
-
-	promise.Catch(func(error error) {
+	}).Catch(func(error error) {
 		t.Log("1")
 		wg.Done()
-	})
-
-	promise.Catch(func(error error) {
+	}).Catch(func(error error) {
 		t.Log("2")
 		wg.Done()
-	})
-
-	promise.Catch(func(error error) {
+	}).Catch(func(error error) {
 		t.Log("3")
 		wg.Done()
 	})
@@ -93,9 +81,7 @@ func TestPromise_Panic(t *testing.T) {
 		wg.Done()
 		t.Fatal("THEN TRIGGERED")
 		t.Fail()
-	})
-
-	promise.Catch(func(error error) {
+	}).Catch(func(error error) {
 		t.Log("Panic Recovered", error.Error())
 		wg.Done()
 	})
