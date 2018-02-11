@@ -11,6 +11,12 @@ const (
 	rejected
 )
 
+// A Promise is a proxy for a value not necessarily known when
+// the promise is created. It allows you to associate handlers
+// with an asynchronous action's eventual success value or failure reason.
+// This lets asynchronous methods return values like synchronous methods:
+// instead of immediately returning the final value, the asynchronous method
+// returns a promise to supply the value at some point in the future.
 type Promise struct {
 
 	// A Promise is in one of these states:
@@ -119,7 +125,7 @@ func (promise *Promise) addCatch(rejection func(error error)) {
 	promise.catch = append(promise.catch, rejection)
 }
 
-// Appends fulfillment handler to the promise, and returns a new promise.
+// Then appends fulfillment handler to the promise, and returns a new promise.
 func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
 	if promise.isPending() {
 		promise.addThen(fulfillment)
@@ -129,7 +135,7 @@ func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
 	return promise
 }
 
-// Appends a rejection handler callback to the promise, and returns a new promise.
+// Catch appends a rejection handler callback to the promise, and returns a new promise.
 func (promise *Promise) Catch(rejection func(error error)) *Promise {
 	if promise.isPending() {
 		promise.addCatch(rejection)
