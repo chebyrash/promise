@@ -52,6 +52,9 @@ type Promise struct {
 
 	// Mutex protects against data race conditions.
 	mutex *sync.Mutex
+
+	// WaitGroup allows to block until all callbacks are executed.
+	wg *sync.WaitGroup
 }
 
 // New instantiates and returns a *Promise object.
@@ -64,6 +67,7 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 		result:   nil,
 		error:    nil,
 		mutex:    &sync.Mutex{},
+		wg:       &sync.WaitGroup{},
 	}
 
 	go func() {
@@ -82,10 +86,15 @@ func (promise *Promise) resolve(resolution interface{}) {
 		return
 	}
 
+	for x := 0; x < len(promise.catch); x++ {
+		promise.wg.Done()
+	}
+
 	promise.result = resolution
 
 	for _, value := range promise.then {
 		value(promise.result)
+		promise.wg.Done()
 	}
 
 	promise.state = fulfilled
@@ -99,10 +108,15 @@ func (promise *Promise) reject(error error) {
 		return
 	}
 
+	for x := 0; x < len(promise.then); x++ {
+		promise.wg.Done()
+	}
+
 	promise.error = error
 
 	for _, value := range promise.catch {
 		value(promise.error)
+		promise.wg.Done()
 	}
 
 	promise.state = rejected
@@ -121,9 +135,12 @@ func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
 	defer promise.mutex.Unlock()
 
 	if promise.state == pending {
+		promise.wg.Add(1)
 		promise.then = append(promise.then, fulfillment)
 	} else if promise.state == fulfilled {
+		promise.wg.Add(1)
 		fulfillment(promise.result)
+		promise.wg.Done()
 	}
 
 	return promise
@@ -135,10 +152,18 @@ func (promise *Promise) Catch(rejection func(error error)) *Promise {
 	defer promise.mutex.Unlock()
 
 	if promise.state == pending {
+		promise.wg.Add(1)
 		promise.catch = append(promise.catch, rejection)
 	} else if promise.state == rejected {
+		promise.wg.Add(1)
 		rejection(promise.error)
+		promise.wg.Done()
 	}
 
 	return promise
+}
+
+// Await is a blocking function that waits for all callbacks to be executed.
+func (promise *Promise) Await() {
+	promise.wg.Wait()
 }

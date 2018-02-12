@@ -2,7 +2,6 @@ package promise
 
 import (
 	"errors"
-	"sync"
 	"testing"
 )
 
@@ -18,70 +17,63 @@ func TestNew(t *testing.T) {
 }
 
 func TestPromise_Then(t *testing.T) {
-	var wg = &sync.WaitGroup{}
-	wg.Add(3)
-
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
 		resolve("very complicated result")
 	})
 
 	promise.Then(func(data interface{}) {
 		t.Log("1", data)
-		wg.Done()
 	}).Then(func(data interface{}) {
 		t.Log("2", data)
-		wg.Done()
 	}).Then(func(data interface{}) {
 		t.Log("3", data)
-		wg.Done()
-	}).Catch(func(error error) {
-		wg.Done()
-		t.Fatal("CATCH TRIGGERED")
+	}).Then(func(data interface{}) {
+		t.Log("4", data)
+	}).Then(func(data interface{}) {
+		t.Log("5", data)
 	})
 
-	wg.Wait()
+	promise.Catch(func(error error) {
+		t.Fatal("CATCH TRIGGERED IN .THEN TEST")
+	})
+
+	promise.Await()
 }
 
 func TestPromise_Catch(t *testing.T) {
-	var wg = &sync.WaitGroup{}
-	wg.Add(3)
-
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
 		reject(errors.New("very serious error"))
 	})
 
-	promise.Then(func(data interface{}) {
-		wg.Done()
-		t.Fatal("THEN TRIGGERED")
-	}).Catch(func(error error) {
+	promise.Catch(func(error error) {
 		t.Log("1", error.Error())
-		wg.Done()
 	}).Catch(func(error error) {
 		t.Log("2", error.Error())
-		wg.Done()
 	}).Catch(func(error error) {
 		t.Log("3", error.Error())
-		wg.Done()
+	}).Catch(func(error error) {
+		t.Log("4", error.Error())
+	}).Catch(func(error error) {
+		t.Log("5", error.Error())
 	})
 
-	wg.Wait()
+	promise.Then(func(data interface{}) {
+		t.Fatal("THEN TRIGGERED IN .CATCH TEST")
+	})
+
+	promise.Await()
 }
 
 func TestPromise_Panic(t *testing.T) {
-	var wg = &sync.WaitGroup{}
-	wg.Add(1)
-
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
 		panic("much panic")
 	})
 
 	promise.Then(func(data interface{}) {
-		wg.Done()
 		t.Fatal("THEN TRIGGERED")
 	}).Catch(func(error error) {
 		t.Log("Panic Recovered:", error.Error())
-		wg.Done()
 	})
 
-	wg.Wait()
+	promise.Await()
 }
