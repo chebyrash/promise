@@ -5,13 +5,9 @@ import (
 	"github.com/chebyrash/promise"
 	"io/ioutil"
 	"net/http"
-	"sync"
 )
 
 func main() {
-	var wg = &sync.WaitGroup{}
-	wg.Add(1)
-
 	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
 		var url = "https://httpbin.org/ip"
 
@@ -32,13 +28,11 @@ func main() {
 
 	requestPromise.Then(func(data interface{}) {
 		fmt.Println(data)
-		wg.Done()
 	})
 
 	requestPromise.Catch(func(error error) {
 		fmt.Println(error.Error())
-		wg.Done()
 	})
 
-	wg.Wait()
+	requestPromise.Await()
 }

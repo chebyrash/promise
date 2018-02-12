@@ -8,44 +8,39 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
 
 ## Installation
 
-    $ go get github.com/chebyrash/promise
+    $ go get -u github.com/chebyrash/promise
     
 ## Examples
 
 ### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
-var wg = &sync.WaitGroup{}
-wg.Add(1)
-
 var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
-    var url = "https://httpbin.org/ip"
+	var url = "https://httpbin.org/ip"
 
-    resp, err := http.Get(url)
-    defer resp.Body.Close()
+	resp, err := http.Get(url)
+	defer resp.Body.Close()
 
-    if err != nil {
-        reject(err)
-    }
+	if err != nil {
+		reject(err)
+	}
 
-    body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-        reject(err)
-    }
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		reject(err)
+	}
 
-    resolve(string(body))
+	resolve(string(body))
 })
 
 requestPromise.Then(func(data interface{}) {
-    fmt.Println(data)
-    wg.Done()
+	fmt.Println(data)
 })
 
 requestPromise.Catch(func(error error) {
-    fmt.Println(error.Error())
-    wg.Done()
+	fmt.Println(error.Error())
 })
 
-wg.Wait()
+requestPromise.Await()
 ```
 
 ### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/calculation/main.go)
@@ -65,53 +60,41 @@ func findFactorialPromise(n int) *promise.Promise {
 }
 
 func main() {
-	var wg = &sync.WaitGroup{}
-	wg.Add(3)
-
 	var factorial1 = findFactorialPromise(5)
 	var factorial2 = findFactorialPromise(10)
 	var factorial3 = findFactorialPromise(15)
 
 	factorial1.Then(func(data interface{}) {
 		fmt.Println("Result of 5! is", data)
-		wg.Done()
 	})
 
 	factorial2.Then(func(data interface{}) {
 		fmt.Println("Result of 10! is", data)
-		wg.Done()
 	})
 
 	factorial3.Then(func(data interface{}) {
 		fmt.Println("Result of 15! is", data)
-		wg.Done()
 	})
 
-	wg.Wait()
+	factorial1.Await()
+	factorial2.Await()
+	factorial3.Await()
 }
 ```
 
 ### [Chaining](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
-
-var wg = &sync.WaitGroup{}
-wg.Add(3)
-
 var p = promise.New(func(resolve func(interface{}), reject func(error)) {
-    resolve(0)
+	resolve(0)
 })
 
 p.Then(func(data interface{}) {
-    fmt.Println("I will execute first!")
-    wg.Done()
+	fmt.Println("I will execute first!")
 }).Then(func(data interface{}) {
-    fmt.Println("And I will execute second!")
-    wg.Done()
+	fmt.Println("And I will execute second!")
 }).Then(func(data interface{}) {
-    fmt.Println("Oh I'm last :(")
-    wg.Done()
+	fmt.Println("Oh I'm last :(")
 })
 
-wg.Wait()
-
+p.Await()
 ```
