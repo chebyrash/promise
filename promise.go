@@ -75,33 +75,37 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 }
 
 func (promise *Promise) resolve(resolution interface{}) {
-	if !promise.isPending() {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
+	if !(promise.state == pending) {
 		return
 	}
 
 	promise.result = resolution
 
-	promise.mutex.Lock()
 	for _, value := range promise.then {
 		value(promise.result)
 	}
+
 	promise.state = fulfilled
-	promise.mutex.Unlock()
 }
 
 func (promise *Promise) reject(error error) {
-	if !promise.isPending() {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
+	if !(promise.state == pending) {
 		return
 	}
 
 	promise.error = error
 
-	promise.mutex.Lock()
 	for _, value := range promise.catch {
 		value(promise.error)
 	}
+
 	promise.state = rejected
-	promise.mutex.Unlock()
 }
 
 func (promise *Promise) handlePanic() {
@@ -111,57 +115,30 @@ func (promise *Promise) handlePanic() {
 	}
 }
 
-func (promise *Promise) addThen(fulfillment func(data interface{})) {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
-
-	promise.then = append(promise.then, fulfillment)
-}
-
-func (promise *Promise) addCatch(rejection func(error error)) {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
-
-	promise.catch = append(promise.catch, rejection)
-}
-
 // Then appends fulfillment handler to the promise, and returns a new promise.
 func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
-	if promise.isPending() {
-		promise.addThen(fulfillment)
-	} else if promise.isFulfilled() {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
+	if promise.state == pending {
+		promise.then = append(promise.then, fulfillment)
+	} else if promise.state == fulfilled {
 		fulfillment(promise.result)
 	}
+
 	return promise
 }
 
 // Catch appends a rejection handler callback to the promise, and returns a new promise.
 func (promise *Promise) Catch(rejection func(error error)) *Promise {
-	if promise.isPending() {
-		promise.addCatch(rejection)
-	} else if promise.isRejected() {
+	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
+
+	if promise.state == pending {
+		promise.catch = append(promise.catch, rejection)
+	} else if promise.state == rejected {
 		rejection(promise.error)
 	}
+
 	return promise
-}
-
-func (promise *Promise) isPending() bool {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
-
-	return promise.state == pending
-}
-
-func (promise *Promise) isFulfilled() bool {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
-
-	return promise.state == fulfilled
-}
-
-func (promise *Promise) isRejected() bool {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
-
-	return promise.state == rejected
 }
