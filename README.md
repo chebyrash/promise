@@ -9,7 +9,48 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
 ## Installation
 
     $ go get -u github.com/chebyrash/promise
-    
+
+## Quick Start
+```go
+	var p = promise.New(func(resolve func(interface{}), reject func(error)) {
+		// Do something asynchronously.
+		const sum = 2 + 2
+		
+		// If your work was successful call resolve() passing the result.
+		if sum == 4 {
+			resolve(result)
+			return
+		}
+		
+		// If you encountered an error call reject() passing the error.
+		if sum != 4 {
+			reject(errors.New("2 + 2 doesnt't equal 4"))
+			return
+		}
+		
+		// If you forgot to check for errors and your function panics the promise will
+		// automatically reject.
+		// panic() == reject()
+	})
+	
+	// A promise is a returned object to which you attach callbacks.
+	p.Then(func(data interface{}) {
+		fmt.Println("The result is:", data)
+	})
+	
+	// Callbacks can be added with even after the success or failure of the asynchronous operation.
+	// Multiple callbacks may be added by calling .Then or .Catch several times,
+	// to be executed independently in insertion order.
+	p.Then(func(data interface{}) {
+		fmt.Println("The result is:", data)
+	}).Catch(func(error error) {
+		fmt.Println("Error during execution:", error)
+	})
+	
+	// Since callbacks are executed asynchronously you can wait for them.
+	p.Await()
+```
+
 ## Examples
 
 ### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
