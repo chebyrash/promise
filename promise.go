@@ -82,7 +82,7 @@ func (promise *Promise) resolve(resolution interface{}) {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	if !(promise.state == pending) {
+	if promise.state != pending {
 		return
 	}
 
@@ -104,7 +104,7 @@ func (promise *Promise) reject(error error) {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	if !(promise.state == pending) {
+	if promise.state != pending {
 		return
 	}
 
