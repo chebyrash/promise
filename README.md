@@ -18,7 +18,7 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
 		
 		// If your work was successful call resolve() passing the result.
 		if sum == 4 {
-			resolve(result)
+			resolve(sum)
 			return
 		}
 		
