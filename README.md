@@ -43,7 +43,7 @@ requestPromise.Catch(func(error error) {
 requestPromise.Await()
 ```
 
-### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/calculation/main.go)
+### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/factorial/main.go)
 
 ```go
 func findFactorial(n int) int {
