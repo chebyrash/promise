@@ -35,7 +35,5 @@ func main() {
 		fmt.Println("Result of 15! is", data)
 	})
 
-	factorial1.Await()
-	factorial2.Await()
-	factorial3.Await()
+	promise.AwaitAll(factorial1, factorial2, factorial3)
 }
