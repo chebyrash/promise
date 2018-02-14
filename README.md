@@ -38,13 +38,13 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
 		fmt.Println("The result is:", data)
 	})
 	
-	// Callbacks can be added with even after the success or failure of the asynchronous operation.
+	// Callbacks can be added even after the success or failure of the asynchronous operation.
 	// Multiple callbacks may be added by calling .Then or .Catch several times,
 	// to be executed independently in insertion order.
 	p.Then(func(data interface{}) {
 		fmt.Println("The result is:", data)
 	}).Catch(func(error error) {
-		fmt.Println("Error during execution:", error)
+		fmt.Println("Error during execution:", error.Error())
 	})
 	
 	// Since callbacks are executed asynchronously you can wait for them.

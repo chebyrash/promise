@@ -167,3 +167,9 @@ func (promise *Promise) Catch(rejection func(error error)) *Promise {
 func (promise *Promise) Await() {
 	promise.wg.Wait()
 }
+
+func AwaitAll(promises ...*Promise) {
+	for _, promise := range promises {
+		promise.Await()
+	}
+}
