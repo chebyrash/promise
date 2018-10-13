@@ -152,7 +152,7 @@ func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 		promise.wg.Add(1)
 		promise.catch = append(promise.catch, rejection)
 	} else if promise.state == rejected {
-		rejection(promise.error)
+		promise.error = rejection(promise.error)
 	}
 
 	return promise
@@ -163,6 +163,7 @@ func (promise *Promise) Await() {
 	promise.wg.Wait()
 }
 
+// AwaitAll is a blocking function that waits for a number of promises to resolve
 func AwaitAll(promises ...*Promise) {
 	for _, promise := range promises {
 		promise.Await()
