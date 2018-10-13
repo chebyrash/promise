@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"fmt"
 	"github.com/chebyrash/promise"
 	"io/ioutil"
@@ -23,16 +24,30 @@ func main() {
 			reject(err)
 		}
 
-		resolve(string(body))
+		resolve(body)
 	})
 
-	requestPromise.Then(func(data interface{}) {
-		fmt.Println(data)
-	})
+	requestPromise.
+		// Parse JSON body
+		Then(func(data interface{}) interface{} {
+			var body = make(map[string]string)
 
-	requestPromise.Catch(func(error error) {
-		fmt.Println(error.Error())
-	})
+			json.Unmarshal(data.([]byte), &body)
+
+			return body
+		}).
+		// Work with parsed body
+		Then(func(data interface{}) interface{} {
+			var body = data.(map[string]string)
+
+			fmt.Println("Origin:", body["origin"])
+
+			return nil
+		}).
+		Catch(func(error error) error {
+			fmt.Println(error.Error())
+			return nil
+		})
 
 	requestPromise.Await()
 }

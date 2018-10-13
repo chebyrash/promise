@@ -12,43 +12,48 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
 
 ## Quick Start
 ```go
-	var p = promise.New(func(resolve func(interface{}), reject func(error)) {
-		// Do something asynchronously.
-		const sum = 2 + 2
-		
-		// If your work was successful call resolve() passing the result.
-		if sum == 4 {
-			resolve(sum)
-			return
-		}
-		
-		// If you encountered an error call reject() passing the error.
-		if sum != 4 {
-			reject(errors.New("2 + 2 doesnt't equal 4"))
-			return
-		}
-		
-		// If you forgot to check for errors and your function panics the promise will
-		// automatically reject.
-		// panic() == reject()
-	})
-	
-	// A promise is a returned object to which you attach callbacks.
-	p.Then(func(data interface{}) {
-		fmt.Println("The result is:", data)
-	})
-	
-	// Callbacks can be added even after the success or failure of the asynchronous operation.
-	// Multiple callbacks may be added by calling .Then or .Catch several times,
-	// to be executed independently in insertion order.
-	p.Then(func(data interface{}) {
-		fmt.Println("The result is:", data)
-	}).Catch(func(error error) {
-		fmt.Println("Error during execution:", error.Error())
-	})
-	
-	// Since callbacks are executed asynchronously you can wait for them.
-	p.Await()
+var p = promise.New(func(resolve func(interface{}), reject func(error)) {
+    // Do something asynchronously.
+    const sum = 2 + 2
+
+    // If your work was successful call resolve() passing the result.
+    if sum == 4 {
+        resolve(sum)
+        return
+    }
+
+    // If you encountered an error call reject() passing the error.
+    if sum != 4 {
+        reject(errors.New("2 + 2 doesnt't equal 4"))
+        return
+    }
+
+    // If you forgot to check for errors and your function panics the promise will
+    // automatically reject.
+    // panic() == reject()
+})
+
+// A promise is a returned object to which you attach callbacks.
+p.Then(func(data interface{}) interface{} {
+    fmt.Println("The result is:", data)
+    return data.(int) + 1
+})
+
+// Callbacks can be added even after the success or failure of the asynchronous operation.
+// Multiple callbacks may be added by calling .Then or .Catch several times,
+// to be executed independently in insertion order.
+p.
+    Then(func(data interface{}) interface{} {
+        fmt.Println("The new result is:", data)
+        return nil
+    }).
+    Catch(func(error error) error {
+        fmt.Println("Error during execution:", error.Error())
+        return nil
+    })
+
+// Since callbacks are executed asynchronously you can wait for them.
+p.Await()
 ```
 
 ## Examples
@@ -56,30 +61,44 @@ Promises library for Golang. Inspired by [JS Promises.](https://developer.mozill
 ### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
 var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
-	var url = "https://httpbin.org/ip"
+    var url = "https://httpbin.org/ip"
 
-	resp, err := http.Get(url)
-	defer resp.Body.Close()
+    resp, err := http.Get(url)
+    defer resp.Body.Close()
 
-	if err != nil {
-		reject(err)
-	}
+    if err != nil {
+        reject(err)
+    }
 
-	body, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		reject(err)
-	}
+    body, err := ioutil.ReadAll(resp.Body)
+    if err != nil {
+        reject(err)
+    }
 
-	resolve(string(body))
+    resolve(body)
 })
 
-requestPromise.Then(func(data interface{}) {
-	fmt.Println(data)
-})
+requestPromise.
+    // Parse JSON body
+    Then(func(data interface{}) interface{} {
+        var body = make(map[string]string)
 
-requestPromise.Catch(func(error error) {
-	fmt.Println(error.Error())
-})
+        json.Unmarshal(data.([]byte), &body)
+
+        return body
+    }).
+    // Work with parsed body
+    Then(func(data interface{}) interface{} {
+        var body = data.(map[string]string)
+
+        fmt.Println("Origin:", body["origin"])
+
+        return nil
+    }).
+    Catch(func(error error) error {
+        fmt.Println(error.Error())
+        return nil
+    })
 
 requestPromise.Await()
 ```
@@ -105,16 +124,19 @@ func main() {
 	var factorial2 = findFactorialPromise(10)
 	var factorial3 = findFactorialPromise(15)
 
-	factorial1.Then(func(data interface{}) {
+	factorial1.Then(func(data interface{}) interface{} {
 		fmt.Println("Result of 5! is", data)
+		return nil
 	})
 
-	factorial2.Then(func(data interface{}) {
+	factorial2.Then(func(data interface{}) interface{} {
 		fmt.Println("Result of 10! is", data)
+		return nil
 	})
 
-	factorial3.Then(func(data interface{}) {
+	factorial3.Then(func(data interface{}) interface{} {
 		fmt.Println("Result of 15! is", data)
+		return nil
 	})
 
 	promise.AwaitAll(factorial1, factorial2, factorial3)
@@ -124,16 +146,22 @@ func main() {
 ### [Chaining](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
 var p = promise.New(func(resolve func(interface{}), reject func(error)) {
-	resolve(0)
+    resolve(0)
 })
 
-p.Then(func(data interface{}) {
-	fmt.Println("I will execute first!")
-}).Then(func(data interface{}) {
-	fmt.Println("And I will execute second!")
-}).Then(func(data interface{}) {
-	fmt.Println("Oh I'm last :(")
-})
+p.
+    Then(func(data interface{}) interface{} {
+        fmt.Println("I will execute first")
+        return nil
+    }).
+    Then(func(data interface{}) interface{} {
+        fmt.Println("And I will execute second!")
+        return nil
+    }).
+    Then(func(data interface{}) interface{} {
+        fmt.Println("Oh I'm last :(")
+        return nil
+    })
 
 p.Await()
 ```

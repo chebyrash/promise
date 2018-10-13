@@ -23,16 +23,19 @@ func main() {
 	var factorial2 = findFactorialPromise(10)
 	var factorial3 = findFactorialPromise(15)
 
-	factorial1.Then(func(data interface{}) {
+	factorial1.Then(func(data interface{}) interface{} {
 		fmt.Println("Result of 5! is", data)
+		return nil
 	})
 
-	factorial2.Then(func(data interface{}) {
+	factorial2.Then(func(data interface{}) interface{} {
 		fmt.Println("Result of 10! is", data)
+		return nil
 	})
 
-	factorial3.Then(func(data interface{}) {
+	factorial3.Then(func(data interface{}) interface{} {
 		fmt.Println("Result of 15! is", data)
+		return nil
 	})
 
 	promise.AwaitAll(factorial1, factorial2, factorial3)

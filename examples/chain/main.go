@@ -10,13 +10,19 @@ func main() {
 		resolve(0)
 	})
 
-	p.Then(func(data interface{}) {
-		fmt.Println("I will execute first!")
-	}).Then(func(data interface{}) {
-		fmt.Println("And I will execute second!")
-	}).Then(func(data interface{}) {
-		fmt.Println("Oh I'm last :(")
-	})
+	p.
+		Then(func(data interface{}) interface{} {
+			fmt.Println("I will execute first")
+			return nil
+		}).
+		Then(func(data interface{}) interface{} {
+			fmt.Println("And I will execute second!")
+			return nil
+		}).
+		Then(func(data interface{}) interface{} {
+			fmt.Println("Oh I'm last :(")
+			return nil
+		})
 
 	p.Await()
 }
