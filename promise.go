@@ -18,7 +18,6 @@ const (
 // instead of immediately returning the final value, the asynchronous method
 // returns a promise to supply the value at some point in the future.
 type Promise struct {
-
 	// A Promise is in one of these states:
 	// Pending - 0. Initial state, neither fulfilled nor rejected.
 	// Fulfilled - 1. Operation completed successfully.
@@ -38,11 +37,11 @@ type Promise struct {
 
 	// Appends fulfillment to the promise,
 	// and returns a new promise.
-	then []func(data interface{})
+	then []func(data interface{}) interface{}
 
 	// Appends a rejection handler to the promise,
 	// and returns a new promise.
-	catch []func(error error)
+	catch []func(error error) error
 
 	// Stores the result passed to resolve()
 	result interface{}
@@ -62,8 +61,8 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 	var promise = &Promise{
 		state:    pending,
 		executor: executor,
-		then:     make([]func(interface{}), 0),
-		catch:    make([]func(error), 0),
+		then:     make([]func(interface{}) interface{}, 0),
+		catch:    make([]func(error) error, 0),
 		result:   nil,
 		error:    nil,
 		mutex:    &sync.Mutex{},
@@ -86,14 +85,14 @@ func (promise *Promise) resolve(resolution interface{}) {
 		return
 	}
 
-	for x := 0; x < len(promise.catch); x++ {
+	for range promise.catch {
 		promise.wg.Done()
 	}
 
 	promise.result = resolution
 
 	for _, value := range promise.then {
-		value(promise.result)
+		promise.result = value(promise.result)
 		promise.wg.Done()
 	}
 
@@ -108,14 +107,14 @@ func (promise *Promise) reject(error error) {
 		return
 	}
 
-	for x := 0; x < len(promise.then); x++ {
+	for range promise.then {
 		promise.wg.Done()
 	}
 
 	promise.error = error
 
 	for _, value := range promise.catch {
-		value(promise.error)
+		promise.error = value(promise.error)
 		promise.wg.Done()
 	}
 
@@ -130,7 +129,7 @@ func (promise *Promise) handlePanic() {
 }
 
 // Then appends fulfillment handler to the promise, and returns a new promise.
-func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
+func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
@@ -138,16 +137,14 @@ func (promise *Promise) Then(fulfillment func(data interface{})) *Promise {
 		promise.wg.Add(1)
 		promise.then = append(promise.then, fulfillment)
 	} else if promise.state == fulfilled {
-		promise.wg.Add(1)
-		fulfillment(promise.result)
-		promise.wg.Done()
+		promise.result = fulfillment(promise.result)
 	}
 
 	return promise
 }
 
 // Catch appends a rejection handler callback to the promise, and returns a new promise.
-func (promise *Promise) Catch(rejection func(error error)) *Promise {
+func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
@@ -155,9 +152,7 @@ func (promise *Promise) Catch(rejection func(error error)) *Promise {
 		promise.wg.Add(1)
 		promise.catch = append(promise.catch, rejection)
 	} else if promise.state == rejected {
-		promise.wg.Add(1)
 		rejection(promise.error)
-		promise.wg.Done()
 	}
 
 	return promise

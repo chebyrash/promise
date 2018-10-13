@@ -19,23 +19,24 @@ func TestNew(t *testing.T) {
 
 func TestPromise_Then(t *testing.T) {
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
-		resolve("very complicated result")
+		resolve(1 + 1)
 	})
 
-	promise.Then(func(data interface{}) {
-		log.Println("1", data)
-	}).Then(func(data interface{}) {
-		log.Println("2", data)
-	}).Then(func(data interface{}) {
-		log.Println("3", data)
-	}).Then(func(data interface{}) {
-		log.Println("4", data)
-	}).Then(func(data interface{}) {
-		log.Println("5", data)
-	})
+	promise.
+		Then(func(data interface{}) interface{} {
+			return data.(int) + 1
+		}).
+		Then(func(data interface{}) interface{} {
+			log.Println(data)
+			if data.(int) != 3 {
+				t.Fatal("RESULT DOES NOT PROPAGATE")
+			}
+			return nil
+		})
 
-	promise.Catch(func(error error) {
+	promise.Catch(func(error error) error {
 		t.Fatal("CATCH TRIGGERED IN .THEN TEST")
+		return nil
 	})
 
 	promise.Await()
@@ -46,20 +47,25 @@ func TestPromise_Catch(t *testing.T) {
 		reject(errors.New("very serious error"))
 	})
 
-	promise.Catch(func(error error) {
-		log.Println("1", error.Error())
-	}).Catch(func(error error) {
-		log.Println("2", error.Error())
-	}).Catch(func(error error) {
-		log.Println("3", error.Error())
-	}).Catch(func(error error) {
-		log.Println("4", error.Error())
-	}).Catch(func(error error) {
-		log.Println("5", error.Error())
-	})
+	promise.
+		Catch(func(error error) error {
+			if error.Error() == "very serious error" {
+				return errors.New("dealing with error at this stage")
+			}
+			return nil
+		}).
+		Catch(func(error error) error {
+			if error.Error() != "dealing with error at this stage" {
+				t.Fatal("ERROR DOES NOT PROPAGATE")
+			} else {
+				log.Println(error.Error())
+			}
+			return nil
+		})
 
-	promise.Then(func(data interface{}) {
+	promise.Then(func(data interface{}) interface{} {
 		t.Fatal("THEN TRIGGERED IN .CATCH TEST")
+		return nil
 	})
 
 	promise.Await()
@@ -70,11 +76,15 @@ func TestPromise_Panic(t *testing.T) {
 		panic("much panic")
 	})
 
-	promise.Then(func(data interface{}) {
-		t.Fatal("THEN TRIGGERED")
-	}).Catch(func(error error) {
-		log.Println("Panic Recovered:", error.Error())
-	})
+	promise.
+		Then(func(data interface{}) interface{} {
+			t.Fatal("THEN TRIGGERED")
+			return nil
+		}).
+		Catch(func(error error) error {
+			log.Println("Panic Recovered:", error.Error())
+			return nil
+		})
 
 	promise.Await()
 }
@@ -84,14 +94,25 @@ func TestPromise_Await(t *testing.T) {
 
 	for x := 0; x < 10; x++ {
 		var promise = New(func(resolve func(interface{}), reject func(error)) {
-			resolve(time.Now().Second())
-		}).Then(func(data interface{}) {
-			log.Println(data)
+			resolve(time.Now())
 		})
+
+		promise.Then(func(data interface{}) interface{} {
+			return data.(time.Time).Add(time.Second).Nanosecond()
+		})
+
 		promises[x] = promise
 		log.Println("Added", x+1)
 	}
 
 	log.Println("Waiting")
+
 	AwaitAll(promises...)
+
+	for _, promise := range promises {
+		promise.Then(func(data interface{}) interface{} {
+			log.Println(data)
+			return nil
+		})
+	}
 }
