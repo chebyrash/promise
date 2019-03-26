@@ -128,6 +128,7 @@ func (promise *Promise) resolve(resolution interface{}) {
 
 func (promise *Promise) reject(error error) {
 	promise.mutex.Lock()
+	defer promise.mutex.Unlock()
 
 	if promise.state != pending {
 		return
@@ -146,8 +147,6 @@ func (promise *Promise) reject(error error) {
 	}
 
 	promise.state = rejected
-
-	promise.mutex.Unlock()
 }
 
 func (promise *Promise) handlePanic() {
