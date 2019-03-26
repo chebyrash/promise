@@ -56,8 +56,11 @@ type Promise struct {
 	wg *sync.WaitGroup
 }
 
-// New instantiates and returns a *Promise object.
+// New instantiates and returns a pointer to the Promise.
 func New(executor func(resolve func(interface{}), reject func(error))) *Promise {
+	var wg = &sync.WaitGroup{}
+	wg.Add(1)
+
 	var promise = &Promise{
 		state:    pending,
 		executor: executor,
@@ -66,7 +69,7 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 		result:   nil,
 		error:    nil,
 		mutex:    &sync.Mutex{},
-		wg:       &sync.WaitGroup{},
+		wg:       wg,
 	}
 
 	go func() {
@@ -79,46 +82,72 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 
 func (promise *Promise) resolve(resolution interface{}) {
 	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
 
 	if promise.state != pending {
 		return
 	}
 
+	switch result := resolution.(type) {
+	case *Promise:
+		res, err := result.Await()
+		if err != nil {
+			promise.mutex.Unlock()
+			promise.reject(err)
+			return
+		}
+		promise.result = res
+	default:
+		promise.result = result
+	}
+
+	promise.wg.Done()
 	for range promise.catch {
 		promise.wg.Done()
 	}
 
-	promise.result = resolution
-
-	for _, value := range promise.then {
-		promise.result = value(promise.result)
+	for _, fn := range promise.then {
+		switch result := fn(promise.result).(type) {
+		case *Promise:
+			res, err := result.Await()
+			if err != nil {
+				promise.mutex.Unlock()
+				promise.reject(err)
+				return
+			}
+			promise.result = res
+		default:
+			promise.result = result
+		}
 		promise.wg.Done()
 	}
 
 	promise.state = fulfilled
+
+	promise.mutex.Unlock()
 }
 
 func (promise *Promise) reject(error error) {
 	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
 
 	if promise.state != pending {
 		return
 	}
 
+	promise.error = error
+
+	promise.wg.Done()
 	for range promise.then {
 		promise.wg.Done()
 	}
 
-	promise.error = error
-
-	for _, value := range promise.catch {
-		promise.error = value(promise.error)
+	for _, fn := range promise.catch {
+		promise.error = fn(promise.error)
 		promise.wg.Done()
 	}
 
 	promise.state = rejected
+
+	promise.mutex.Unlock()
 }
 
 func (promise *Promise) handlePanic() {
@@ -158,12 +187,14 @@ func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 	return promise
 }
 
-// Await is a blocking function that waits for all callbacks to be executed.
-func (promise *Promise) Await() {
+// Await is a blocking function that waits for all callbacks to be executed. Returns value and error.
+// Call on an already resolved promise to get its result and error
+func (promise *Promise) Await() (interface{}, error) {
 	promise.wg.Wait()
+	return promise.result, promise.error
 }
 
-// AwaitAll is a blocking function that waits for a number of promises to resolve
+// AwaitAll is a blocking function that waits for a number of promises to resolve / reject.
 func AwaitAll(promises ...*Promise) {
 	for _, promise := range promises {
 		promise.Await()

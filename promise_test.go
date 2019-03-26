@@ -32,12 +32,54 @@ func TestPromise_Then(t *testing.T) {
 				t.Fatal("RESULT DOES NOT PROPAGATE")
 			}
 			return nil
+		}).
+		Catch(func(error error) error {
+			t.Fatal("CATCH TRIGGERED IN .THEN TEST")
+			return nil
 		})
 
-	promise.Catch(func(error error) error {
-		t.Fatal("CATCH TRIGGERED IN .THEN TEST")
-		return nil
+	promise.Await()
+}
+
+func TestPromise_Then2(t *testing.T) {
+	var promise = New(func(resolve func(interface{}), reject func(error)) {
+		resolve(New(func(res func(interface{}), rej func(error)) {
+			res("Hello, World")
+		}))
 	})
+
+	promise.
+		Then(func(data interface{}) interface{} {
+			if data.(string) != "Hello, World" {
+				t.Fatal("PROMISE DOESN'T FLATTEN")
+			}
+			t.Log("PROMISE FLATTENS ON NESTED RESOLVE")
+			return nil
+		}).
+		Catch(func(error error) error {
+			t.Fatal("CATCH TRIGGERED IN .THEN TEST")
+			return nil
+		})
+
+	promise.Await()
+}
+
+func TestPromise_Then3(t *testing.T) {
+	var promise = New(func(resolve func(interface{}), reject func(error)) {
+		resolve(New(func(res func(interface{}), rej func(error)) {
+			rej(errors.New("nested fail"))
+		}))
+	})
+
+	promise.
+		Then(func(data interface{}) interface{} {
+			t.Fatal("THEN TRIGGERED IN .CATCH TEST")
+			return nil
+		}).
+		Catch(func(error error) error {
+			log.Println("PROMISE FLATTENS ON NESTED REJECTION", error.Error())
+			return nil
+		})
 
 	promise.Await()
 }
@@ -78,11 +120,11 @@ func TestPromise_Panic(t *testing.T) {
 
 	promise.
 		Then(func(data interface{}) interface{} {
-			t.Fatal("THEN TRIGGERED")
+			t.Fatal("THEN TRIGGERED IN .CATCH TEST")
 			return nil
 		}).
 		Catch(func(error error) error {
-			log.Println("Panic Recovered:", error.Error())
+			log.Println("Panic Recovered: ", error.Error())
 			return nil
 		})
 
@@ -105,9 +147,16 @@ func TestPromise_Await(t *testing.T) {
 		log.Println("Added", x+1)
 	}
 
-	log.Println("Waiting")
+	var promise1 = New(func(resolve func(interface{}), reject func(error)) {
+		resolve("WinRAR")
+	})
+
+	var promise2 = New(func(resolve func(interface{}), reject func(error)) {
+		reject(errors.New("fail"))
+	})
 
 	AwaitAll(promises...)
+	AwaitAll(promise1, promise2)
 
 	for _, promise := range promises {
 		promise.Then(func(data interface{}) interface{} {
