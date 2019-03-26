@@ -1,7 +1,7 @@
 language: go
 
 go:
-  - "1.12.x"
+  - "1.x"
     
 script:
   - go test -v -race -count 1000 ./...
