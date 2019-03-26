@@ -8,6 +8,19 @@ import (
 	"net/http"
 )
 
+func parseJSON(data []byte) *promise.Promise {
+	return promise.New(func(resolve func(interface{}), reject func(error)) {
+		var body = make(map[string]string)
+
+		err := json.Unmarshal(data, &body)
+		if err != nil {
+			reject(err)
+		}
+
+		resolve(body)
+	})
+}
+
 func main() {
 	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
 		var url = "https://httpbin.org/ip"
@@ -30,11 +43,8 @@ func main() {
 	requestPromise.
 		// Parse JSON body
 		Then(func(data interface{}) interface{} {
-			var body = make(map[string]string)
-
-			json.Unmarshal(data.([]byte), &body)
-
-			return body
+			// This can be a promise, it will automatically flatten
+			return parseJSON(data.([]byte))
 		}).
 		// Work with parsed body
 		Then(func(data interface{}) interface{} {
@@ -42,12 +52,21 @@ func main() {
 
 			fmt.Println("Origin:", body["origin"])
 
-			return nil
+			return body
 		}).
 		Catch(func(error error) error {
 			fmt.Println(error.Error())
 			return nil
 		})
 
-	requestPromise.Await()
+	// Your resolved values can be extracted from the Promise
+	// But you are encouraged to handle them in .Then and .Catch
+	value, err := requestPromise.Await()
+
+	if err != nil {
+		fmt.Println("Error: " + err.Error())
+	}
+
+	origin := value.(map[string]string)["origin"]
+	fmt.Println("Origin: " + origin)
 }
