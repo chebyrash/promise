@@ -199,3 +199,17 @@ func AwaitAll(promises ...*Promise) {
 		promise.Await()
 	}
 }
+
+// The Resolve returns a Promise object that is resolved with a given value.
+func Resolve(resolution interface{}) *Promise {
+	return New(func(resolve func(interface{}), reject func(error)) {
+		resolve(resolution)
+	})
+}
+
+// Reject returns a Promise object that is rejected with a given reason.
+func Reject(err error) *Promise {
+	return New(func(resolve func(interface{}), reject func(error)) {
+		reject(err)
+	})
+}

@@ -13,7 +13,7 @@ func TestNew(t *testing.T) {
 	})
 
 	if promise == nil {
-		t.Fatal("PROMISE IS NIL")
+		t.Error("PROMISE IS NIL")
 	}
 }
 
@@ -29,12 +29,12 @@ func TestPromise_Then(t *testing.T) {
 		Then(func(data interface{}) interface{} {
 			log.Println(data)
 			if data.(int) != 3 {
-				t.Fatal("RESULT DOES NOT PROPAGATE")
+				t.Error("RESULT DOES NOT PROPAGATE")
 			}
 			return nil
 		}).
 		Catch(func(error error) error {
-			t.Fatal("CATCH TRIGGERED IN .THEN TEST")
+			t.Error("CATCH TRIGGERED IN .THEN TEST")
 			return nil
 		})
 
@@ -51,13 +51,13 @@ func TestPromise_Then2(t *testing.T) {
 	promise.
 		Then(func(data interface{}) interface{} {
 			if data.(string) != "Hello, World" {
-				t.Fatal("PROMISE DOESN'T FLATTEN")
+				t.Error("PROMISE DOESN'T FLATTEN")
 			}
 			t.Log("PROMISE FLATTENS ON NESTED RESOLVE")
 			return nil
 		}).
 		Catch(func(error error) error {
-			t.Fatal("CATCH TRIGGERED IN .THEN TEST")
+			t.Error("CATCH TRIGGERED IN .THEN TEST")
 			return nil
 		})
 
@@ -73,7 +73,7 @@ func TestPromise_Then3(t *testing.T) {
 
 	promise.
 		Then(func(data interface{}) interface{} {
-			t.Fatal("THEN TRIGGERED IN .CATCH TEST")
+			t.Error("THEN TRIGGERED IN .CATCH TEST")
 			return nil
 		}).
 		Catch(func(error error) error {
@@ -98,7 +98,7 @@ func TestPromise_Catch(t *testing.T) {
 		}).
 		Catch(func(error error) error {
 			if error.Error() != "dealing with error at this stage" {
-				t.Fatal("ERROR DOES NOT PROPAGATE")
+				t.Error("ERROR DOES NOT PROPAGATE")
 			} else {
 				log.Println(error.Error())
 			}
@@ -106,7 +106,7 @@ func TestPromise_Catch(t *testing.T) {
 		})
 
 	promise.Then(func(data interface{}) interface{} {
-		t.Fatal("THEN TRIGGERED IN .CATCH TEST")
+		t.Error("THEN TRIGGERED IN .CATCH TEST")
 		return nil
 	})
 
@@ -120,7 +120,7 @@ func TestPromise_Panic(t *testing.T) {
 
 	promise.
 		Then(func(data interface{}) interface{} {
-			t.Fatal("THEN TRIGGERED IN .CATCH TEST")
+			t.Error("THEN TRIGGERED IN .CATCH TEST")
 			return nil
 		}).
 		Catch(func(error error) error {
@@ -164,4 +164,35 @@ func TestPromise_Await(t *testing.T) {
 			return nil
 		})
 	}
+}
+
+func TestPromise_Resolve(t *testing.T) {
+	var promise = Resolve(123).
+		Then(func(data interface{}) interface{} {
+			return data.(int) + 1
+		}).
+		Then(func(data interface{}) interface{} {
+			t.Helper()
+			if data.(int) != 124 {
+				t.Errorf("THEN RESOLVED WITH UNEXPECTED VALUE: %v", data.(int))
+			}
+			return nil
+		})
+
+	promise.Await()
+}
+
+func TestPromise_Reject(t *testing.T) {
+	var promise = Reject(errors.New("Rejected")).
+		Then(func(data interface{}) interface{} {
+			return data.(int) + 1
+		}).
+		Catch(func(error error) error {
+			if error.Error() != "Rejected" {
+				t.Errorf("CATCH REJECTED WITH UNEXPECTED VALUE: %v", error)
+			}
+			return nil
+		})
+
+	promise.Await()
 }
