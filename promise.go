@@ -200,7 +200,7 @@ func AwaitAll(promises ...*Promise) {
 	}
 }
 
-// The Resolve returns a Promise object that is resolved with a given value.
+// Resolve returns a Promise object that is resolved with a given value.
 func Resolve(resolution interface{}) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
 		resolve(resolution)
