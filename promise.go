@@ -156,7 +156,7 @@ func (promise *Promise) handlePanic() {
 	}
 }
 
-// Then appends fulfillment handler to the promise, and returns a new promise.
+// Then appends fulfillment handler to the Promise, and returns a new promise.
 func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
@@ -171,7 +171,7 @@ func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Pr
 	return promise
 }
 
-// Catch appends a rejection handler callback to the promise, and returns a new promise.
+// Catch appends a rejection handler callback to the Promise, and returns a new promise.
 func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
@@ -187,15 +187,29 @@ func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 }
 
 // Await is a blocking function that waits for all callbacks to be executed. Returns value and error.
-// Call on an already resolved promise to get its result and error
+// Call on an already resolved Promise to get its result and error
 func (promise *Promise) Await() (interface{}, error) {
 	promise.wg.Wait()
 	return promise.result, promise.error
 }
 
-// AwaitAll is a blocking function that waits for a number of promises to resolve / reject.
+// AwaitAll is a blocking function that waits for a number of Promises to resolve / reject.
 func AwaitAll(promises ...*Promise) {
 	for _, promise := range promises {
 		promise.Await()
 	}
+}
+
+// Resolve returns a pointer to the Promise that has been resolved with a given value.
+func Resolve(resolution interface{}) *Promise {
+	return New(func(resolve func(interface{}), reject func(error)) {
+		resolve(resolution)
+	})
+}
+
+// Reject returns a pointer to the Promise that has been rejected with a given error.
+func Reject(err error) *Promise {
+	return New(func(resolve func(interface{}), reject func(error)) {
+		reject(err)
+	})
 }
