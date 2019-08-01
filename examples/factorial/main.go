@@ -13,9 +13,7 @@ func findFactorial(n int) int {
 }
 
 func findFactorialPromise(n int) *promise.Promise {
-	return promise.New(func(resolve func(interface{}), reject func(error)) {
-		resolve(findFactorial(n))
-	})
+	return promise.Resolve(findFactorial(n))
 }
 
 func main() {

@@ -6,9 +6,7 @@ import (
 )
 
 func main() {
-	var p = promise.New(func(resolve func(interface{}), reject func(error)) {
-		resolve(0)
-	})
+	var p = promise.Resolve(0)
 
 	p.
 		Then(func(data interface{}) interface{} {

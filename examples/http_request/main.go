@@ -30,11 +30,13 @@ func main() {
 
 		if err != nil {
 			reject(err)
+			return
 		}
 
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
 			reject(err)
+			return
 		}
 
 		resolve(body)
@@ -50,7 +52,7 @@ func main() {
 		Then(func(data interface{}) interface{} {
 			var body = data.(map[string]string)
 
-			fmt.Println("Origin:", body["origin"])
+			fmt.Println("[Inside Promise] Origin:", body["origin"])
 
 			return body
 		}).
@@ -65,8 +67,9 @@ func main() {
 
 	if err != nil {
 		fmt.Println("Error: " + err.Error())
+		return
 	}
 
 	origin := value.(map[string]string)["origin"]
-	fmt.Println("Origin: " + origin)
+	fmt.Println("[Outside Promise] Origin: " + origin)
 }
