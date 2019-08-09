@@ -238,6 +238,36 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
+func All(promises []Promise) *Promise {
+	if promises == nil {
+		return Resolve(promises)
+	}
+	pLen := len(promises)
+	returned := make(chan []interface{}, pLen)
+	var wg sync.WaitGroup
+	return New(func(resolve func(interface{}), reject func(error)) {
+		for i, p := range promises {
+			wg.Add(1)
+			go func() {
+				resolved, err := p.Await()
+				if err != nil {
+					wg.Done()
+					reject(err)
+					return
+				}
+				returned <- []interface{}{i, resolved}
+				wg.Done()
+			}()
+		}
+		out := make([]interface{}, pLen)
+		for xs := range returned {
+			out[xs[0].(int)] = xs[1]
+		}
+		wg.Wait()
+		resolve(out)
+	})
+}
+
 // Resolve returns a pointer to the Promise that has been resolved with a given value.
 func Resolve(resolution interface{}) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {

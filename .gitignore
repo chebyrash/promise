@@ -1,0 +1,43 @@
+# See https://help.github.com/ignore-files/ for more about ignoring files.
+# =======
+
+# Env files
+.local*
+.env*
+.env
+
+# IDEs
+# =======
+.idea/
+#.idea/*.iml
+#.idea/modules.xml
+#.idea/workspace.xml
+#.idea/encodings.xml
+#.idea/dataSources.xml
+#.idea/dataSources.local.xml
+#.idea/dataSources/
+
+# Binaries for programs and plugins
+# =======
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Test binary, build with `go test -c`
+# =======
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+# =======
+*.out
+
+# Project-local glide cache, RE: https://github.com/Masterminds/glide/issues/736
+# =======
+.glide/
+
+# Dirs
+# =======
+# SSL/TLS Certs for local dev
+.certs/
+

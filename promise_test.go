@@ -249,3 +249,13 @@ func TestPromise_All3(t *testing.T) {
 		return
 	}
 }
+
+func TestAll(t *testing.T) {
+	type TestAllTestCase struct {
+		Name     string
+		Promises []Promise
+		Expected []interface{}
+	}
+
+
+}
