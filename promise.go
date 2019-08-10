@@ -200,91 +200,48 @@ func (promise *Promise) Await() (interface{}, error) {
 // from the resolved promises in the same order as defined in the iterable of multiple promises.
 // If it rejects, it is rejected with the reason from the first promise in the iterable that was rejected.
 func All(promises ...*Promise) *Promise {
-	var length = len(promises)
+	psLen := len(promises)
 
-	if promises == nil || length == 0 {
-		return Resolve(make([]interface{}, 0))
-	}
-
-	return New(func(resolve func(interface{}), reject func(error)) {
-		var resolutionsChan = make(chan []interface{}, length)
-		var errorChan = make(chan error, length)
-
-		for index, promise := range promises {
-			func(x int) {
-				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- []interface{}{x, data}
-					return data
-				})
-				promise.Catch(func(err error) error {
-					errorChan <- err
-					return err
-				})
-			}(index)
-		}
-
-		var resolutions = make([]interface{}, length)
-		for x := 0; x < length; x++ {
-			select {
-			case resolution := <-resolutionsChan:
-				resolutions[resolution[0].(int)] = resolution[1]
-
-			case err := <-errorChan:
-				reject(err)
-				return
-			}
-		}
-		resolve(resolutions)
-	})
-}
-
-func All(promises []*Promise) *Promise {
-	pLen := len(promises)
-
-	if promises == nil || pLen == 0 {
+	if psLen == 0 {
 		return Resolve([]interface{}{})
 	}
 
-	returned := make(chan []interface{}, pLen) // Resolved promises' value stream
-
-	var wg sync.WaitGroup // Passed in promises' wait-group
-
-	// Run our process
 	return New(func(resolve func(interface{}), reject func(error)) {
-		for index, promise := range promises {
-			wg.Add(1)
+		resolvedChan := make(chan []interface{}, psLen)
+		rejectedChan := make(chan error, psLen)
 
-			// Await promise
-			go func(i int, p *Promise) {
-				resolved, err := p.Await()
-
-				// If err reject promise and return
-				if err != nil {
-					reject(err)
-					wg.Done()
-					return
-				}
-
-				// Push resolved value
-				returned <- []interface{}{i, resolved}
-
-				wg.Done()
+		for ind, promise := range promises {
+			func (i int, p *Promise) {
+				p.Then(func(data interface{}) interface{} {
+					resolvedChan <- []interface{}{i, data}
+					return data
+				}).Catch(func(err error) error {
+					rejectedChan <- err
+					return err
+				})
 			}(
-				index,
+				ind,
 				promise,
 			)
 		}
 
-		wg.Wait()
-		close(returned) // close value stream
+		resolutions := make([]interface{}, psLen)
+		numResolved := 0
 
-		// Capture values in slice
-		out := make([]interface{}, pLen)
-		for xs := range returned {
-			out[xs[0].(int)] = xs[1]
+		for {
+			if numResolved == psLen {
+				resolve(resolutions)
+				return
+			}
+			select {
+			case resolution := <- resolvedChan:
+				resolutions[resolution[0].(int)] = resolution[1]
+				numResolved += 1
+			case err := <-rejectedChan:
+				reject(err)
+				return
+			}
 		}
-
-		resolve(out)
 	})
 }
 
