@@ -282,10 +282,10 @@ func Race(promises ...*Promise) *Promise {
 	}
 	return New(func(resolve func(interface{}), reject func(error)) {
 		var wg sync.WaitGroup
-		resolvedPipe := make(chan interface{}, psLen)
-		done := make(chan<- bool, psLen)
+		resolved := make(chan interface{}, psLen)
+		rejected := make(chan<- bool, psLen)
 		for _, promise := range promises {
-			resolveOrRejectReached := len(done) > 0 || len(resolvedPipe) > 0
+			resolveOrRejectReached := len(rejected) > 0 || len(resolved) > 0
 			if  resolveOrRejectReached {
 				break
 			}
@@ -293,21 +293,21 @@ func Race(promises ...*Promise) *Promise {
 			go func(p *Promise) {
 				result, err := p.Await()
 				if err != nil {
-					done <- true
+					rejected <- true
 					reject(err)
 					wg.Done()
 					return
 				}
-				resolvedPipe <- result
+				resolved <- result
 				wg.Done()
 			}(
 				promise,
 			)
 		}
 		wg.Wait()
-		close(resolvedPipe)
-		close(done)
-		resolve(<-resolvedPipe)
+		close(resolved)
+		close(rejected)
+		resolve(<-resolved)
 	})
 }
 
