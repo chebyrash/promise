@@ -238,32 +238,52 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
-func All(promises []Promise) *Promise {
-	if promises == nil {
-		return Resolve(promises)
-	}
+func All(promises []*Promise) *Promise {
 	pLen := len(promises)
-	returned := make(chan []interface{}, pLen)
-	var wg sync.WaitGroup
+
+	if promises == nil || pLen == 0 {
+		return Resolve([]interface{}{})
+	}
+
+	returned := make(chan []interface{}, pLen) // Resolved promises' value stream
+
+	var wg sync.WaitGroup // Passed in promises' wait-group
+
+	// Run our process
 	return New(func(resolve func(interface{}), reject func(error)) {
-		for i, p := range promises {
+		for index, promise := range promises {
 			wg.Add(1)
-			go func() {
+
+			// Await promise
+			go func(i int, p *Promise) {
 				resolved, err := p.Await()
+
+				// If err reject promise and return
 				if err != nil {
-					wg.Done()
 					reject(err)
+					wg.Done()
 					return
 				}
+
+				// Push resolved value
 				returned <- []interface{}{i, resolved}
+
 				wg.Done()
-			}()
+			}(
+				index,
+				promise,
+			)
 		}
+
+		wg.Wait()
+		close(returned) // close value stream
+
+		// Capture values in slice
 		out := make([]interface{}, pLen)
 		for xs := range returned {
 			out[xs[0].(int)] = xs[1]
 		}
-		wg.Wait()
+
 		resolve(out)
 	})
 }

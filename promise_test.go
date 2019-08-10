@@ -252,10 +252,188 @@ func TestPromise_All3(t *testing.T) {
 
 func TestAll(t *testing.T) {
 	type TestAllTestCase struct {
-		Name     string
-		Promises []Promise
-		Expected []interface{}
+		Name        string
+		Promises    []*Promise
+		Expected    []interface{}
 	}
 
+	// Truthy test cases (no error expectations)
+	for _, tc := range []TestAllTestCase{
+		{
+			Name:     "With nil promise list",
+			Promises: nil,
+			Expected: nil,
+		},
+		{
+			Name:     "With 1 \"already\" resolved promise",
+			Promises: []*Promise{
+				Resolve(99),
+			},
+			Expected: []interface{}{99},
+		},
+		{
+			Name:     "With only \"already\" resolved promises",
+			Promises: []*Promise{
+				Resolve(99),
+				Resolve(100),
+				Resolve(101),
+			},
+			Expected: []interface{}{99, 100, 101},
+		},
+		{
+			Name:     "With more than one \"already\" resolved promises",
+			Promises: []*Promise{
+				Resolve(99),
+				New(func (resolve func(interface{}), reject func(error)) {
+					resolve (100)
+				}),
+				Resolve(101),
+			},
+			Expected: []interface{}{99, 100, 101},
+		},
+	} {
+		t.Run(tc.Name, func(t2 *testing.T) {
+			var p *Promise = All(tc.Promises) // Marking as var (with type) ensures
+											  // correct type is returned (upfront)
+		    // Await promise
+			data, err := p.Await()
 
+			t2.Logf("Received: result: %v;  err: %v", data, err)
+
+			// If error fatal-out since there shouldn't be any errors in this test-case set
+			if err != nil {
+				t2.Fatalf("Error occurred for test case \"%s\": %v", tc.Name, err)
+			}
+
+			result := data.([]interface{})
+
+			// Check result 'len' vs expected 'len'
+			ExpectEqual(
+				t2,
+				"Returned data len",
+				len(result),
+				len(tc.Expected),
+			)
+
+			// Compare received data to expected
+			t2.Run("Returned data comparison", func(t3 *testing.T) {
+				for i, x := range tc.Expected {
+					testName := fmt.Sprintf("%v === %v", x, result[i])
+					t3.Run(testName, func(t4 *testing.T) {
+						ExpectEqual(t4, testName, x, result[i])
+					})
+				}
+			})
+
+		}) // test suite
+
+	} // for loop
+
+	// Falsy test cases
+	func () {
+		type TestCheck func (*testing.T, error)
+
+		type TestAllFailingTestCase struct {
+			Name        string
+			Promises    []*Promise
+			ExpectCheck TestCheck
+		}
+
+		FakeError1 := errors.New("FakeError1")
+		FakeError2 := errors.New("FakeError2")
+		FakeError3 := errors.New("FakeError3")
+
+		GetExpectRejectionErrorCheck := func (e2 error) TestCheck {
+			return func (tx *testing.T, e1 error) {
+				tx.Run(fmt.Sprintf("Expect %v", e2), func(t2 *testing.T) {
+					ExpectEqual(t2, "Rejection error", e1, e2)
+				})
+			}
+		}
+
+		GetExpectOneOfErrors := func (errs []error) TestCheck {
+			return func(tx *testing.T, e error) {
+				tx.Run("Expect one of our defined errors", func(t2 *testing.T) {
+					for _, e2 := range errs {
+						if e == e2 {
+							return
+						}
+					}
+					t2.Errorf("Expected one of our defined errors.  Got %v", e)
+				})
+			}
+		}
+
+		ExpectOneOfDefinedErrors := GetExpectOneOfErrors([]error{
+			FakeError1, FakeError2, FakeError3,
+		})
+
+		// Falsy test cases (error expectations)
+		for _, tc := range []TestAllFailingTestCase{
+			{
+				Name: "When one promise",
+				Promises: []*Promise{Reject(FakeError1)},
+				ExpectCheck: GetExpectRejectionErrorCheck(FakeError1),
+			},
+			{
+				Name: "When more than one promise (and one 'rejecting' promise)",
+				Promises: []*Promise{
+					Resolve("Hello World"),
+					Reject(FakeError1),
+					Resolve("Hola mundo"),
+				},
+				ExpectCheck: GetExpectRejectionErrorCheck(FakeError1),
+			},
+			{
+				Name: "When more than one promise (and one 'rejecting' promise)",
+				Promises: []*Promise{
+					Resolve("Hello World"),
+					Resolve("Hello World"),
+					Resolve("Hello World"),
+					Reject(FakeError2),
+					Resolve("Hola mundo"),
+					Resolve("Hola mundo"),
+					Resolve("Hola mundo"),
+				},
+				ExpectCheck: GetExpectRejectionErrorCheck(FakeError2),
+			},
+			{
+				Name: "When more than one rejecting promise",
+				Promises: []*Promise{
+					Resolve("Hello World"),
+					Reject(FakeError1),
+					Resolve("Ola mundo?"),
+					Resolve(FakeError2),
+					Resolve("Hola mundo"),
+				},
+				ExpectCheck: ExpectOneOfDefinedErrors,
+			},
+			{
+				Name: "When only rejecting promises (more than one)",
+				Promises: []*Promise{
+					Reject(FakeError3),
+					Reject(FakeError1),
+					Reject(FakeError2),
+				},
+				ExpectCheck: ExpectOneOfDefinedErrors,
+			},
+		} {
+			t.Run(tc.Name, func(t2 *testing.T) {
+				p := All(tc.Promises)
+
+				result, err := p.Await()
+
+				ExpectEqual(t2, "Result", result, nil)
+
+				// Check error expectations
+				tc.ExpectCheck(t2, err)
+			})
+		}
+	}()
+}
+
+func ExpectEqual(t *testing.T, prefix string, a interface{}, b interface{}) {
+	if a != b {
+		t.Errorf("%s;  Expected %v;  Got %v", prefix, b, a)
+	}
 }
