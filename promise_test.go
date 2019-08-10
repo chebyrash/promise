@@ -428,9 +428,15 @@ func TestRace(t *testing.T) {
 		{
 			Name: "With multiple passing promises (a, b, c)",
 			Promises: []*Promise{
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Millisecond * 3)
+					resolve('b')
+				}),
 				Resolve('a'),
-				Resolve('b'),
-				Resolve('c'),
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Millisecond * 2)
+					resolve('c')
+				}),
 			},
 			ExpectedResult: 'a',
 			ExpectedError: nil,
@@ -454,12 +460,20 @@ func TestRace(t *testing.T) {
 		{
 			Name: "With multiple failing promise (FakeError)",
 			Promises: []*Promise{
-				Reject(FakeError),
-				Reject(FakeError2),
-				Reject(FakeError3),
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Millisecond * 10)
+					reject(FakeError)
+				}),
+				New(func (resolve func (interface{}), reject func (error)) {
+					reject(FakeError2)
+				}),
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Millisecond * 10)
+					reject(FakeError3)
+				}),
 			},
 			ExpectedResult: nil,
-			ExpectedError: FakeError,
+			ExpectedError: FakeError2,
 		},
 	} {
 		t.Run(tc.Name, func(t2 *testing.T) {
