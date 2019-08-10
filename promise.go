@@ -240,6 +240,33 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
+func Race(promises []*Promise) *Promise {
+	psLen := len(promises)
+	if promises == nil || psLen == 0 {
+		return Resolve(nil)
+	}
+	firstReturned := make(chan interface{}, 1)
+	var wg sync.WaitGroup
+	return New(func(resolve func(interface{}), reject func(error)) {
+		for _, p := range promises {
+			wg.Add(1)
+			go func() {
+				result, err := p.Await()
+				if err != nil {
+					reject(err)
+					wg.Done()
+					return
+				}
+				firstReturned <- result
+				wg.Done()
+			}()
+		}
+		wg.Wait()
+		close(firstReturned)
+		resolve(<- firstReturned)
+	})
+}
+
 // Resolve returns a pointer to the Promise that has been resolved with a given value.
 func Resolve(resolution interface{}) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
