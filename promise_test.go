@@ -424,3 +424,96 @@ func TestAll(t *testing.T) {
 
 	} // test cases loop
 }
+
+func TestRace(t *testing.T) {
+	type TestRaceTestCase struct {
+		Name string
+		Promises []*Promise
+		ExpectedResult interface{}
+		ExpectedError interface{}
+	}
+
+	FakeError := errors.New("FakeError")
+	FakeError2 := errors.New("FakeError2")
+	FakeError3 := errors.New("FakeError3")
+
+	for _, tc := range []TestRaceTestCase{
+		{
+			Name: "No promises",
+			Promises: nil,
+			ExpectedResult: nil,
+			ExpectedError: nil,
+		},
+		{
+			Name: "With one passing promise (99)",
+			Promises: []*Promise{Resolve(99)},
+			ExpectedResult: 99,
+			ExpectedError: nil,
+		},
+		{
+			Name: "With one passing promise (nil)",
+			Promises: []*Promise{Resolve(nil)},
+			ExpectedResult: nil,
+			ExpectedError: nil,
+		},
+		{
+			Name: "With multiple passing promises (a, b, c)",
+			Promises: []*Promise{
+				Resolve('a'),
+				Resolve('b'),
+				Resolve('c'),
+			},
+			ExpectedResult: 'a',
+			ExpectedError: nil,
+		},
+		{
+			Name: "With one failing promise (FakeError)",
+			Promises: []*Promise{Reject(FakeError)},
+			ExpectedResult: nil,
+			ExpectedError: FakeError,
+		},
+		{
+			Name: "With multiple promises, and one failing (FakeError)",
+			Promises: []*Promise{
+				Resolve(99),
+				Reject(FakeError),
+				Resolve(100),
+			},
+			ExpectedResult: nil,
+			ExpectedError: FakeError,
+		},
+		{
+			Name: "With multiple failing promise (FakeError)",
+			Promises: []*Promise{
+				Reject(FakeError),
+				Reject(FakeError2),
+				Reject(FakeError3),
+			},
+			ExpectedResult: nil,
+			ExpectedError: FakeError,
+		},
+	} {
+		t.Run(tc.Name, func(t2 *testing.T) {
+			p := Race(tc.Promises...)
+
+			result, err := p.Await()
+
+			t2.Logf("Promise result: result %v;  err %v", result, err)
+
+			subTestName := fmt.Sprintf("Expect result: %v", tc.ExpectedResult)
+			t2.Run(subTestName, func(t3 *testing.T) {
+				if result != tc.ExpectedResult {
+					t3.Errorf("Expected %v;  Received %v", tc.ExpectedResult, result)
+				}
+			})
+
+			subTestName2 := fmt.Sprintf("Expect err: %v", tc.ExpectedError)
+			t2.Run(subTestName2, func(t3 *testing.T) {
+				if err != tc.ExpectedError {
+					t3.Errorf("Expected %v;  Received %v", tc.ExpectedError, err)
+				}
+			})
+		})
+	}
+
+}
