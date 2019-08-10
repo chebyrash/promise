@@ -240,30 +240,41 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
-func Race(promises []*Promise) *Promise {
+// Race takes one or more promises and returns a promise that resolves to the first resolved one or
+// 	rejects on the first rejected one.
+func Race(promises ...*Promise) *Promise {
 	psLen := len(promises)
 	if promises == nil || psLen == 0 {
 		return Resolve(nil)
 	}
-	firstReturned := make(chan interface{}, 1)
-	var wg sync.WaitGroup
 	return New(func(resolve func(interface{}), reject func(error)) {
-		for _, p := range promises {
+		var wg sync.WaitGroup
+		resolvedPipe := make(chan interface{}, psLen)
+		done := make(chan<- bool, psLen)
+		for _, promise := range promises {
+			resolveOrRejectReached := len(done) > 0 || len(resolvedPipe) > 0
+			if  resolveOrRejectReached {
+				break
+			}
 			wg.Add(1)
-			go func() {
+			go func(p *Promise) {
 				result, err := p.Await()
 				if err != nil {
+					done <- true
 					reject(err)
 					wg.Done()
 					return
 				}
-				firstReturned <- result
+				resolvedPipe <- result
 				wg.Done()
-			}()
+			}(
+				promise,
+			)
 		}
 		wg.Wait()
-		close(firstReturned)
-		resolve(<- firstReturned)
+		close(resolvedPipe)
+		close(done)
+		resolve(<-resolvedPipe)
 	})
 }
 
