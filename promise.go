@@ -225,22 +225,18 @@ func All(promises ...*Promise) *Promise {
 			)
 		}
 
-		resolutions := make([]interface{}, psLen)
-		numResolved := 0
-		for {
-			if numResolved == psLen {
-				resolve(resolutions)
-				return
-			}
+		var resolutions = make([]interface{}, psLen)
+		for x := 0; x < psLen; x++ {
 			select {
 			case resolution := <-resolutionsChan:
 				resolutions[resolution[0].(int)] = resolution[1]
-				numResolved += 1
+
 			case err := <-errorChan:
 				reject(err)
 				return
 			}
 		}
+		resolve(resolutions)
 	})
 }
 
