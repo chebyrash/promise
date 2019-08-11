@@ -489,7 +489,7 @@ func TestRace(t *testing.T) {
 			ExpectedError: FakeError,
 		},
 		{
-			Name: "With multiple failing promise (FakeError)",
+			Name: "With multiple failing promise (FakeError2)",
 			Promises: []*Promise{
 				New(func (resolve func (interface{}), reject func (error)) {
 					time.Sleep(time.Second)
