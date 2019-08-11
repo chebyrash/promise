@@ -277,37 +277,42 @@ func Race(promises ...*Promise) *Promise {
 // 	rejects on the first rejected one.
 func Race(promises ...*Promise) *Promise {
 	psLen := len(promises)
-	if promises == nil || psLen == 0 {
+
+	if psLen == 0 {
 		return Resolve(nil)
 	}
+
 	return New(func(resolve func(interface{}), reject func(error)) {
-		var wg sync.WaitGroup
-		resolved := make(chan interface{}, psLen)
-		rejected := make(chan<- bool, psLen)
-		for _, promise := range promises {
-			resolveOrRejectReached := len(rejected) > 0 || len(resolved) > 0
-			if  resolveOrRejectReached {
-				break
-			}
-			wg.Add(1)
-			go func(p *Promise) {
-				result, err := p.Await()
-				if err != nil {
-					rejected <- true
-					reject(err)
-					wg.Done()
-					return
-				}
-				resolved <- result
-				wg.Done()
+		resolutionsChan := make(chan interface{}, psLen)
+		errorChan := make(chan error, psLen)
+
+		for ind, promise := range promises {
+			func (i int, p *Promise) {
+				p.Then(func(data interface{}) interface{} {
+					resolutionsChan <- data
+					return data
+				}).Catch(func(err error) error {
+					errorChan <- err
+					return err
+				})
 			}(
+				ind,
 				promise,
 			)
 		}
-		wg.Wait()
-		close(resolved)
-		close(rejected)
-		resolve(<-resolved)
+
+		var resolution interface{}
+
+		for x := 0; x < psLen; x++ {
+			select {
+			case resolution = <-resolutionsChan:
+				resolve(resolution)
+				return
+			case err := <-errorChan:
+				reject(err)
+				return
+			}
+		}
 	})
 }
 
