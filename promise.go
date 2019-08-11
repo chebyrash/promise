@@ -227,7 +227,6 @@ func All(promises ...*Promise) *Promise {
 
 		resolutions := make([]interface{}, psLen)
 		numResolved := 0
-
 		for {
 			if numResolved == psLen {
 				resolve(resolutions)
