@@ -3,7 +3,6 @@ package promise
 import (
 	"errors"
 	"fmt"
-	"log"
 	"testing"
 	"time"
 )
@@ -28,7 +27,6 @@ func TestPromise_Then(t *testing.T) {
 			return data.(int) + 1
 		}).
 		Then(func(data interface{}) interface{} {
-			log.Println(data)
 			if data.(int) != 3 {
 				t.Error("RESULT DOES NOT PROPAGATE")
 			}
@@ -54,7 +52,6 @@ func TestPromise_Then2(t *testing.T) {
 			if data.(string) != "Hello, World" {
 				t.Error("PROMISE DOESN'T FLATTEN")
 			}
-			t.Log("PROMISE FLATTENS ON NESTED RESOLVE")
 			return nil
 		}).
 		Catch(func(error error) error {
@@ -78,7 +75,6 @@ func TestPromise_Then3(t *testing.T) {
 			return nil
 		}).
 		Catch(func(error error) error {
-			log.Println("PROMISE FLATTENS ON NESTED REJECTION", error.Error())
 			return nil
 		})
 
@@ -100,8 +96,6 @@ func TestPromise_Catch(t *testing.T) {
 		Catch(func(error error) error {
 			if error.Error() != "dealing with error at this stage" {
 				t.Error("ERROR DOES NOT PROPAGATE")
-			} else {
-				log.Println(error.Error())
 			}
 			return nil
 		})
@@ -125,7 +119,6 @@ func TestPromise_Panic(t *testing.T) {
 			return nil
 		}).
 		Catch(func(error error) error {
-			log.Println("Panic Recovered: ", error.Error())
 			return nil
 		})
 
@@ -145,7 +138,6 @@ func TestPromise_Await(t *testing.T) {
 		})
 
 		promises[x] = promise
-		log.Println("Added", x+1)
 	}
 
 	var promise1 = Resolve("WinRAR")
@@ -167,13 +159,6 @@ func TestPromise_Await(t *testing.T) {
 	result, err = promise2.Await()
 	if err == nil {
 		t.Error(err)
-	}
-
-	for _, promise := range promises {
-		promise.Then(func(data interface{}) interface{} {
-			log.Println(data)
-			return nil
-		})
 	}
 }
 
@@ -224,8 +209,6 @@ func TestPromise_All(t *testing.T) {
 	_, err := combined.Await()
 	if err == nil {
 		t.Error("Combined promise failed to return single error")
-	} else {
-		log.Println(err.Error())
 	}
 }
 
@@ -251,7 +234,6 @@ func TestPromise_All2(t *testing.T) {
 				t.Error("Wrong index!")
 				return
 			}
-			log.Println(res)
 		}
 	}
 }
