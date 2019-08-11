@@ -323,7 +323,7 @@ func TestAll(t *testing.T) {
 			Promises: []*Promise{
 				Resolve("Hello World"),
 				New(func(resolve func(interface{}), reject func(error)) {
-					time.Sleep(time.Millisecond * 20)
+					time.Sleep(time.Second)
 					reject(FakeError1)
 				}),
 				Resolve("Ola mundo?"),
@@ -337,14 +337,14 @@ func TestAll(t *testing.T) {
 			Name: "When only rejecting promises (more than one)",
 			Promises: []*Promise{
 				New(func(resolve func(interface{}), reject func(error)) {
-					time.Sleep(time.Millisecond * 20)
+					time.Sleep(time.Second)
 					reject(FakeError3)
 				}),
 				New(func(resolve func(interface{}), reject func(error)) {
 					reject(FakeError1)
 				}),
 				New(func(resolve func(interface{}), reject func(error)) {
-					time.Sleep(time.Millisecond * 20)
+					time.Sleep(time.Second)
 					reject(FakeError2)
 				}),
 			},
