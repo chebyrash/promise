@@ -250,6 +250,37 @@ func TestPromise_All3(t *testing.T) {
 	}
 }
 
+// TODO: Fix tests with new style
+func TestRace(t *testing.T) {
+	var promises = make([]*Promise, 10)
+
+	for x := 0; x < 10; x++ {
+		if x == 8 {
+			promises[x] = Reject(errors.New("bad promise"))
+			continue
+		}
+
+		promises[x] = Resolve("All Good")
+	}
+
+	combined := Race(promises...)
+	result, err := combined.Await()
+
+	// If result got resolved ahead of err
+	if result != nil && err == nil {
+		_, ok := result.(string)
+		if !ok {
+			t.Error("Result is not a string, but should be")
+		} else {
+			return
+		}
+	} else if result == nil && err != nil {
+		if err.Error() != "bad promise" {
+			t.Error("Wrong error")
+		}
+	}
+}
+
 func TestAll(t *testing.T) {
 	type TestAllTestCase struct {
 		Name           string

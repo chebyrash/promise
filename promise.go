@@ -236,6 +236,43 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
+// Race waits until any of the promises is resolved or rejected.
+// If the returned promise resolves, it is resolved with the value of the first promise in the iterable
+// that resolved. If it rejects, it is rejected with the reason from the first promise that was rejected.
+func Race(promises ...*Promise) *Promise {
+	psLen := len(promises)
+	if psLen == 0 {
+		return Resolve(make([]interface{}, 0))
+	}
+
+	return New(func(resolve func(interface{}), reject func(error)) {
+		resolutionsChan := make(chan []interface{}, 1)
+		errorChan := make(chan error, 1)
+
+		for index, promise := range promises {
+			func(i int) {
+				promise.Then(func(data interface{}) interface{} {
+					resolutionsChan <- []interface{}{i, data}
+					return data
+				}).Catch(func(err error) error {
+					errorChan <- err
+					return err
+				})
+			}(index)
+		}
+
+		select {
+		case resolution := <-resolutionsChan:
+			resolve(resolution)
+			return
+
+		case err := <-errorChan:
+			reject(err)
+			return
+		}
+	})
+}
+
 // Resolve returns a pointer to the Promise that has been resolved with a given value.
 func Resolve(resolution interface{}) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
