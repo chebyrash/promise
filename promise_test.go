@@ -255,3 +255,21 @@ func TestPromise_All2(t *testing.T) {
 		}
 	}
 }
+
+func TestPromise_All3(t *testing.T) {
+	var promises []*Promise
+
+	combined := All(promises...)
+	result, err := combined.Await()
+
+	if err != nil {
+		t.Error(err)
+		return
+	}
+
+	res := result.([]interface{})
+	if len(res) != 0 {
+		t.Error("Wrong result on nil slice")
+		return
+	}
+}
