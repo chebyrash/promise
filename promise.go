@@ -225,7 +225,7 @@ func All(promises ...*Promise) *Promise {
 			)
 		}
 
-		var resolutions = make([]interface{}, psLen)
+		resolutions := make([]interface{}, psLen)
 		for x := 0; x < psLen; x++ {
 			select {
 			case resolution := <-resolutionsChan:
