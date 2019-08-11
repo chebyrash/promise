@@ -203,7 +203,7 @@ func All(promises ...*Promise) *Promise {
 	psLen := len(promises)
 
 	if psLen == 0 {
-		return Resolve([]interface{}{})
+		return Resolve(make([]interface{}, 0))
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
