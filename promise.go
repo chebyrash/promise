@@ -249,19 +249,14 @@ func Race(promises ...*Promise) *Promise {
 		resolutionsChan := make(chan interface{}, psLen)
 		errorChan := make(chan error, psLen)
 
-		for ind, promise := range promises {
-			func (i int, p *Promise) {
-				p.Then(func(data interface{}) interface{} {
-					resolutionsChan <- data
-					return data
-				}).Catch(func(err error) error {
-					errorChan <- err
-					return err
-				})
-			}(
-				ind,
-				promise,
-			)
+		for _, p := range promises {
+			p.Then(func(data interface{}) interface{} {
+				resolutionsChan <- data
+				return data
+			}).Catch(func(err error) error {
+				errorChan <- err
+				return err
+			})
 		}
 
 		var resolution interface{}
