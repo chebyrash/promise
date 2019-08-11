@@ -251,7 +251,7 @@ func TestPromise_All3(t *testing.T) {
 }
 
 // TODO: Fix tests with new style
-func TestRace(t *testing.T) {
+func TestRace2(t *testing.T) {
 	var promises = make([]*Promise, 10)
 
 	for x := 0; x < 10; x++ {
@@ -481,9 +481,15 @@ func TestRace(t *testing.T) {
 		{
 			Name: "With multiple promises, and one failing (FakeError)",
 			Promises: []*Promise{
-				Resolve(99),
+				New(func(resolve func(interface{}), reject func(error)) {
+					time.Sleep(time.Second)
+					Resolve(99)
+				}),
 				Reject(FakeError),
-				Resolve(100),
+				New(func(resolve func(interface{}), reject func(error)) {
+					time.Sleep(time.Second)
+					Resolve(99)
+				}),
 			},
 			ExpectedResult: nil,
 			ExpectedError: FakeError,
