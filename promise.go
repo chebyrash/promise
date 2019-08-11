@@ -263,7 +263,7 @@ func Race(promises ...*Promise) *Promise {
 
 		select {
 		case resolution := <-resolutionsChan:
-			resolve(resolution)
+			resolve(resolution[1])
 			return
 
 		case err := <-errorChan:
