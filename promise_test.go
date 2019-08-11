@@ -305,7 +305,7 @@ func TestAll(t *testing.T) {
 			ExpectedError:  FakeError1,
 		},
 		{
-			Name: "With multiple promises (and one rejected promise)",
+			Name: "With multiple promises (and one rejected)",
 			Promises: []*Promise{
 				Resolve("Hello World"),
 				Resolve("Hello World"),
@@ -319,7 +319,7 @@ func TestAll(t *testing.T) {
 			ExpectedError:  FakeError2,
 		},
 		{
-			Name: "With multiple promises and multiple rejecting promises",
+			Name: "With multiple promises and multiple rejecting",
 			Promises: []*Promise{
 				Resolve("Hello World"),
 				New(func(resolve func(interface{}), reject func(error)) {
@@ -354,7 +354,7 @@ func TestAll(t *testing.T) {
 	} {
 		t.Run(tc.Name, func(t2 *testing.T) {
 			p := All(tc.Promises...)
-			data, err := p.Await() // Using await since we have to call either way and for brevity's sake
+			data, err := p.Await()
 			var result []interface{}
 
 			switch data.(type) {

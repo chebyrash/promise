@@ -207,16 +207,16 @@ func All(promises ...*Promise) *Promise {
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolvedChan := make(chan []interface{}, psLen)
-		rejectedChan := make(chan error, psLen)
+		resolutionsChan := make(chan []interface{}, psLen)
+		errorChan := make(chan error, psLen)
 
 		for ind, promise := range promises {
 			func (i int, p *Promise) {
 				p.Then(func(data interface{}) interface{} {
-					resolvedChan <- []interface{}{i, data}
+					resolutionsChan <- []interface{}{i, data}
 					return data
 				}).Catch(func(err error) error {
-					rejectedChan <- err
+					errorChan <- err
 					return err
 				})
 			}(
@@ -234,10 +234,10 @@ func All(promises ...*Promise) *Promise {
 				return
 			}
 			select {
-			case resolution := <- resolvedChan:
+			case resolution := <-resolutionsChan:
 				resolutions[resolution[0].(int)] = resolution[1]
 				numResolved += 1
-			case err := <-rejectedChan:
+			case err := <-errorChan:
 				reject(err)
 				return
 			}
