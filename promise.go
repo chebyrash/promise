@@ -201,7 +201,6 @@ func (promise *Promise) Await() (interface{}, error) {
 // If it rejects, it is rejected with the reason from the first promise in the iterable that was rejected.
 func All(promises ...*Promise) *Promise {
 	psLen := len(promises)
-
 	if psLen == 0 {
 		return Resolve(make([]interface{}, 0))
 	}
@@ -210,19 +209,16 @@ func All(promises ...*Promise) *Promise {
 		resolutionsChan := make(chan []interface{}, psLen)
 		errorChan := make(chan error, psLen)
 
-		for ind, promise := range promises {
-			func (i int, p *Promise) {
-				p.Then(func(data interface{}) interface{} {
+		for index, promise := range promises {
+			func(i int) {
+				promise.Then(func(data interface{}) interface{} {
 					resolutionsChan <- []interface{}{i, data}
 					return data
 				}).Catch(func(err error) error {
 					errorChan <- err
 					return err
 				})
-			}(
-				ind,
-				promise,
-			)
+			}(index)
 		}
 
 		resolutions := make([]interface{}, psLen)
