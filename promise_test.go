@@ -250,37 +250,6 @@ func TestPromise_All3(t *testing.T) {
 	}
 }
 
-// TODO: Fix tests with new style
-func TestRace2(t *testing.T) {
-	var promises = make([]*Promise, 10)
-
-	for x := 0; x < 10; x++ {
-		if x == 8 {
-			promises[x] = Reject(errors.New("bad promise"))
-			continue
-		}
-
-		promises[x] = Resolve("All Good")
-	}
-
-	combined := Race(promises...)
-	result, err := combined.Await()
-
-	// If result got resolved ahead of err
-	if result != nil && err == nil {
-		_, ok := result.(string)
-		if !ok {
-			t.Error("Result is not a string, but should be")
-		} else {
-			return
-		}
-	} else if result == nil && err != nil {
-		if err.Error() != "bad promise" {
-			t.Error("Wrong error")
-		}
-	}
-}
-
 func TestAll(t *testing.T) {
 	type TestAllTestCase struct {
 		Name           string
@@ -436,6 +405,7 @@ func TestRace(t *testing.T) {
 	FakeError := errors.New("FakeError")
 	FakeError2 := errors.New("FakeError2")
 	FakeError3 := errors.New("FakeError3")
+	BadPromiseError := errors.New("bad promise")
 
 	for _, tc := range []TestRaceTestCase{
 		{
@@ -512,6 +482,26 @@ func TestRace(t *testing.T) {
 			ExpectedResult: nil,
 			ExpectedError: FakeError2,
 		},
+		{
+			Name: "",
+			Promises: func() []*Promise {
+				var promises = make([]*Promise, 10)
+				for x := 0; x < 10; x++ {
+					if x == 8 {
+						promises[x] = Reject(BadPromiseError)
+						continue
+					}
+
+					promises[x] = New(func(resolve func(interface{}), reject func(error)) {
+						time.Sleep(time.Second * time.Duration(x + 1))
+						resolve("All Good")
+					})
+				}
+				return promises
+			}(),
+			ExpectedResult: nil,
+			ExpectedError: BadPromiseError,
+		},
 	} {
 		t.Run(tc.Name, func(t2 *testing.T) {
 			p := Race(tc.Promises...)
@@ -536,4 +526,36 @@ func TestRace(t *testing.T) {
 		})
 	}
 
+}
+
+// TODO: Fix tests with new style (or append it's test cases to previous test)
+// (see line 485 for example (sorry actually put it in place but wanted to give and example :-D)).
+func TestRace2(t *testing.T) {
+	var promises = make([]*Promise, 10)
+
+	for x := 0; x < 10; x++ {
+		if x == 8 {
+			promises[x] = Reject(errors.New("bad promise"))
+			continue
+		}
+
+		promises[x] = Resolve("All Good")
+	}
+
+	combined := Race(promises...)
+	result, err := combined.Await()
+
+	// If result got resolved ahead of err
+	if result != nil && err == nil {
+		_, ok := result.(string)
+		if !ok {
+			t.Error("Result is not a string, but should be")
+		} else {
+			return
+		}
+	} else if result == nil && err != nil {
+		if err.Error() != "bad promise" {
+			t.Error("Wrong error")
+		}
+	}
 }
