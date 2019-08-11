@@ -246,8 +246,8 @@ func Race(promises ...*Promise) *Promise {
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolutionsChan := make(chan []interface{}, 1)
-		errorChan := make(chan error, 1)
+		resolutionsChan := make(chan []interface{}, psLen)
+		errorChan := make(chan error, psLen)
 
 		for index, promise := range promises {
 			func(i int) {
