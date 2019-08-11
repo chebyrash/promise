@@ -2,6 +2,7 @@ package promise
 
 import (
 	"errors"
+	"fmt"
 	"log"
 	"testing"
 	"time"
@@ -147,16 +148,26 @@ func TestPromise_Await(t *testing.T) {
 		log.Println("Added", x+1)
 	}
 
-	var promise1 = New(func(resolve func(interface{}), reject func(error)) {
-		resolve("WinRAR")
-	})
+	var promise1 = Resolve("WinRAR")
+	var promise2 = Reject(errors.New("fail"))
 
-	var promise2 = New(func(resolve func(interface{}), reject func(error)) {
-		reject(errors.New("fail"))
-	})
+	for _, p := range promises {
+		_, err := p.Await()
 
-	AwaitAll(promises...)
-	AwaitAll(promise1, promise2)
+		if err != nil {
+			t.Error(err)
+		}
+	}
+
+	result, err := promise1.Await()
+	if err != nil && result != "WinRAR" {
+		t.Error(err)
+	}
+
+	result, err = promise2.Await()
+	if err == nil {
+		t.Error(err)
+	}
 
 	for _, promise := range promises {
 		promise.Then(func(data interface{}) interface{} {
@@ -183,16 +194,64 @@ func TestPromise_Resolve(t *testing.T) {
 }
 
 func TestPromise_Reject(t *testing.T) {
-	var promise = Reject(errors.New("Rejected")).
+	var promise = Reject(errors.New("rejected")).
 		Then(func(data interface{}) interface{} {
 			return data.(int) + 1
 		}).
 		Catch(func(error error) error {
-			if error.Error() != "Rejected" {
+			if error.Error() != "rejected" {
 				t.Errorf("CATCH REJECTED WITH UNEXPECTED VALUE: %v", error)
 			}
 			return nil
 		})
 
 	promise.Await()
+}
+
+func TestPromise_All(t *testing.T) {
+	var promises = make([]*Promise, 10)
+
+	for x := 0; x < 10; x++ {
+		if x == 8 {
+			promises[x] = Reject(errors.New("bad promise"))
+			continue
+		}
+
+		promises[x] = Resolve("All Good")
+	}
+
+	combined := All(promises...)
+	_, err := combined.Await()
+	if err == nil {
+		t.Error("Combined promise failed to return single error")
+	} else {
+		log.Println(err.Error())
+	}
+}
+
+func TestPromise_All2(t *testing.T) {
+	var promises = make([]*Promise, 10)
+
+	for index := 0; index < 10; index++ {
+		promises[index] = Resolve(fmt.Sprintf("All Good %d", index))
+	}
+
+	combined := All(promises...)
+	result, err := combined.Await()
+	if err != nil {
+		t.Error(err)
+	} else {
+		for index, res := range result.([]interface{}) {
+			s := fmt.Sprintf("All Good %d", index)
+			if res == nil {
+				t.Error("RESULT IS NIL!")
+				return
+			}
+			if res.(string) != s {
+				t.Error("Wrong index!")
+				return
+			}
+			log.Println(res)
+		}
+	}
 }

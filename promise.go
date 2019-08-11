@@ -186,18 +186,55 @@ func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 	return promise
 }
 
-// Await is a blocking function that waits for all callbacks to be executed. Returns value and error.
+// Await is a blocking function that waits for all callbacks to be executed.
+// Returns value and error.
 // Call on an already resolved Promise to get its result and error
 func (promise *Promise) Await() (interface{}, error) {
 	promise.wg.Wait()
 	return promise.result, promise.error
 }
 
-// AwaitAll is a blocking function that waits for a number of Promises to resolve / reject.
-func AwaitAll(promises ...*Promise) {
-	for _, promise := range promises {
-		promise.Await()
+// All waits for all promises to be resolved, or for any to be rejected.
+// If the returned promise resolves, it is resolved with an aggregating array of the values
+// from the resolved promises in the same order as defined in the iterable of multiple promises.
+// If it rejects, it is rejected with the reason from the first promise in the iterable that was rejected.
+func All(promises ...*Promise) *Promise {
+	var length = len(promises)
+
+	if promises == nil || length == 0 {
+		return Resolve(make([]interface{}, 0))
 	}
+
+	return New(func(resolve func(interface{}), reject func(error)) {
+		var resolutionsChan = make(chan []interface{}, length)
+		var errorChan = make(chan error, length)
+
+		for index, promise := range promises {
+			func(x int) {
+				promise.Then(func(data interface{}) interface{} {
+					resolutionsChan <- []interface{}{x, data}
+					return data
+				})
+				promise.Catch(func(error error) error {
+					errorChan <- error
+					return error
+				})
+			}(index)
+		}
+
+		var resolutions = make([]interface{}, length)
+		for x := 0; x < length; x++ {
+			select {
+			case resolution := <-resolutionsChan:
+				resolutions[resolution[0].(int)] = resolution[1]
+
+			case err := <-errorChan:
+				reject(err)
+				return
+			}
+		}
+		resolve(resolutions)
+	})
 }
 
 // Resolve returns a pointer to the Promise that has been resolved with a given value.
