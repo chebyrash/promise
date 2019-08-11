@@ -200,31 +200,33 @@ func (promise *Promise) Await() (interface{}, error) {
 // from the resolved promises in the same order as defined in the iterable of multiple promises.
 // If it rejects, it is rejected with the reason from the first promise in the iterable that was rejected.
 func All(promises ...*Promise) *Promise {
-	var length = len(promises)
+	psLen := len(promises)
 
-	if promises == nil || length == 0 {
+	if psLen == 0 {
 		return Resolve(make([]interface{}, 0))
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
-		var resolutionsChan = make(chan []interface{}, length)
-		var errorChan = make(chan error, length)
+		resolutionsChan := make(chan []interface{}, psLen)
+		errorChan := make(chan error, psLen)
 
-		for index, promise := range promises {
-			func(x int) {
-				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- []interface{}{x, data}
+		for ind, promise := range promises {
+			func (i int, p *Promise) {
+				p.Then(func(data interface{}) interface{} {
+					resolutionsChan <- []interface{}{i, data}
 					return data
-				})
-				promise.Catch(func(err error) error {
+				}).Catch(func(err error) error {
 					errorChan <- err
 					return err
 				})
-			}(index)
+			}(
+				ind,
+				promise,
+			)
 		}
 
-		var resolutions = make([]interface{}, length)
-		for x := 0; x < length; x++ {
+		resolutions := make([]interface{}, psLen)
+		for x := 0; x < psLen; x++ {
 			select {
 			case resolution := <-resolutionsChan:
 				resolutions[resolution[0].(int)] = resolution[1]
