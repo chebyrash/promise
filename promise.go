@@ -236,8 +236,8 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
-// Race takes one or more promises and returns a promise that resolves or rejects with the value of
-// 	the first promise that resolves or rejects respectively (of the passed in promises).
+// Race takes one or more promises and returns a promise that resolves to the first resolved one or
+// 	rejects on the first rejected one.
 func Race(promises ...*Promise) *Promise {
 	psLen := len(promises)
 
