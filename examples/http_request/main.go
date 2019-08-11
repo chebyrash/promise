@@ -56,8 +56,8 @@ func main() {
 
 			return body
 		}).
-		Catch(func(error error) error {
-			fmt.Println(error.Error())
+		Catch(func(err error) error {
+			fmt.Println(err.Error())
 			return nil
 		})
 

@@ -36,7 +36,5 @@ func main() {
 		return nil
 	})
 
-	promise.
-		All(factorial1, factorial2, factorial3).
-		Await()
+	promise.All(factorial1, factorial2, factorial3).Await()
 }

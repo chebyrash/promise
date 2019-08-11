@@ -32,7 +32,7 @@ type Promise struct {
 	// the promise, respectively. The executor normally initiates some
 	// asynchronous work, and then, once that completes, either calls the
 	// resolve function to resolve the promise or else rejects it if
-	// an error or panic occurred.
+	// an err or panic occurred.
 	executor func(resolve func(interface{}), reject func(error))
 
 	// Appends fulfillment to the promise,
@@ -41,13 +41,13 @@ type Promise struct {
 
 	// Appends a rejection handler to the promise,
 	// and returns a new promise.
-	catch []func(error error) error
+	catch []func(err error) error
 
 	// Stores the result passed to resolve()
 	result interface{}
 
-	// Stores the error passed to reject()
-	error error
+	// Stores the err passed to reject()
+	err error
 
 	// Mutex protects against data race conditions.
 	mutex *sync.Mutex
@@ -67,7 +67,7 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 		then:     make([]func(interface{}) interface{}, 0),
 		catch:    make([]func(error) error, 0),
 		result:   nil,
-		error:    nil,
+		err:      nil,
 		mutex:    &sync.Mutex{},
 		wg:       wg,
 	}
@@ -127,7 +127,7 @@ func (promise *Promise) resolve(resolution interface{}) {
 	promise.mutex.Unlock()
 }
 
-func (promise *Promise) reject(error error) {
+func (promise *Promise) reject(err error) {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
@@ -135,7 +135,7 @@ func (promise *Promise) reject(error error) {
 		return
 	}
 
-	promise.error = error
+	promise.err = err
 
 	promise.wg.Done()
 	for range promise.then {
@@ -143,7 +143,7 @@ func (promise *Promise) reject(error error) {
 	}
 
 	for _, fn := range promise.catch {
-		promise.error = fn(promise.error)
+		promise.err = fn(promise.err)
 		promise.wg.Done()
 	}
 
@@ -173,7 +173,7 @@ func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Pr
 }
 
 // Catch appends a rejection handler callback to the Promise, and returns a new promise.
-func (promise *Promise) Catch(rejection func(error error) error) *Promise {
+func (promise *Promise) Catch(rejection func(err error) error) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
@@ -181,18 +181,18 @@ func (promise *Promise) Catch(rejection func(error error) error) *Promise {
 		promise.wg.Add(1)
 		promise.catch = append(promise.catch, rejection)
 	} else if promise.state == rejected {
-		promise.error = rejection(promise.error)
+		promise.err = rejection(promise.err)
 	}
 
 	return promise
 }
 
 // Await is a blocking function that waits for all callbacks to be executed.
-// Returns value and error.
-// Call on an already resolved Promise to get its result and error
+// Returns value and err.
+// Call on an already resolved Promise to get its result and err
 func (promise *Promise) Await() (interface{}, error) {
 	promise.wg.Wait()
-	return promise.result, promise.error
+	return promise.result, promise.err
 }
 
 // All waits for all promises to be resolved, or for any to be rejected.
@@ -216,9 +216,9 @@ func All(promises ...*Promise) *Promise {
 					resolutionsChan <- []interface{}{x, data}
 					return data
 				})
-				promise.Catch(func(error error) error {
-					errorChan <- error
-					return error
+				promise.Catch(func(err error) error {
+					errorChan <- err
+					return err
 				})
 			}(index)
 		}
@@ -245,7 +245,7 @@ func Resolve(resolution interface{}) *Promise {
 	})
 }
 
-// Reject returns a pointer to the Promise that has been rejected with a given error.
+// Reject returns a pointer to the Promise that has been rejected with a given err.
 func Reject(err error) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
 		reject(err)

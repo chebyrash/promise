@@ -32,7 +32,7 @@ func TestPromise_Then(t *testing.T) {
 			}
 			return nil
 		}).
-		Catch(func(error error) error {
+		Catch(func(err error) error {
 			t.Error("CATCH TRIGGERED IN .THEN TEST")
 			return nil
 		})
@@ -54,7 +54,7 @@ func TestPromise_Then2(t *testing.T) {
 			}
 			return nil
 		}).
-		Catch(func(error error) error {
+		Catch(func(err error) error {
 			t.Error("CATCH TRIGGERED IN .THEN TEST")
 			return nil
 		})
@@ -73,9 +73,6 @@ func TestPromise_Then3(t *testing.T) {
 		Then(func(data interface{}) interface{} {
 			t.Error("THEN TRIGGERED IN .CATCH TEST")
 			return nil
-		}).
-		Catch(func(error error) error {
-			return nil
 		})
 
 	promise.Await()
@@ -83,18 +80,18 @@ func TestPromise_Then3(t *testing.T) {
 
 func TestPromise_Catch(t *testing.T) {
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
-		reject(errors.New("very serious error"))
+		reject(errors.New("very serious err"))
 	})
 
 	promise.
-		Catch(func(error error) error {
-			if error.Error() == "very serious error" {
-				return errors.New("dealing with error at this stage")
+		Catch(func(err error) error {
+			if err.Error() == "very serious err" {
+				return errors.New("dealing with err at this stage")
 			}
 			return nil
 		}).
-		Catch(func(error error) error {
-			if error.Error() != "dealing with error at this stage" {
+		Catch(func(err error) error {
+			if err.Error() != "dealing with err at this stage" {
 				t.Error("ERROR DOES NOT PROPAGATE")
 			}
 			return nil
@@ -116,9 +113,6 @@ func TestPromise_Panic(t *testing.T) {
 	promise.
 		Then(func(data interface{}) interface{} {
 			t.Error("THEN TRIGGERED IN .CATCH TEST")
-			return nil
-		}).
-		Catch(func(error error) error {
 			return nil
 		})
 
@@ -183,9 +177,9 @@ func TestPromise_Reject(t *testing.T) {
 		Then(func(data interface{}) interface{} {
 			return data.(int) + 1
 		}).
-		Catch(func(error error) error {
-			if error.Error() != "rejected" {
-				t.Errorf("CATCH REJECTED WITH UNEXPECTED VALUE: %v", error)
+		Catch(func(err error) error {
+			if err.Error() != "rejected" {
+				t.Errorf("CATCH REJECTED WITH UNEXPECTED VALUE: %v", err)
 			}
 			return nil
 		})
@@ -208,7 +202,7 @@ func TestPromise_All(t *testing.T) {
 	combined := All(promises...)
 	_, err := combined.Await()
 	if err == nil {
-		t.Error("Combined promise failed to return single error")
+		t.Error("Combined promise failed to return single err")
 	}
 }
 
