@@ -128,7 +128,7 @@ func TestPromise_Await(t *testing.T) {
 		})
 
 		promise.Then(func(data interface{}) interface{} {
-			return data.(time.Time).Add(time.Millisecond * 20).Nanosecond()
+			return data.(time.Time).Add(time.Second).Nanosecond()
 		})
 
 		promises[x] = promise
