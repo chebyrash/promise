@@ -242,7 +242,7 @@ func All(promises ...*Promise) *Promise {
 func Race(promises ...*Promise) *Promise {
 	psLen := len(promises)
 	if psLen == 0 {
-		return Resolve(make([]interface{}, 0))
+		return Resolve(nil)
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
@@ -268,6 +268,38 @@ func Race(promises ...*Promise) *Promise {
 			reject(err)
 			return
 		}
+	})
+}
+
+// AllSettled waits until all promises have settled (each may resolve, or reject).
+// Returns a promise that resolves after all of the given promises have either resolved or rejected,
+// with an array of objects that each describe the outcome of each promise.
+func AllSettled(promises ...*Promise) *Promise {
+	psLen := len(promises)
+	if psLen == 0 {
+		return Resolve(make([]interface{}, 0))
+	}
+
+	return New(func(resolve func(interface{}), reject func(error)) {
+		resolutionsChan := make(chan []interface{}, psLen)
+
+		for index, promise := range promises {
+			func(i int) {
+				promise.Then(func(data interface{}) interface{} {
+					resolutionsChan <- []interface{}{i, data}
+					return data
+				}).Catch(func(err error) error {
+					resolutionsChan <- []interface{}{i, err}
+					return err
+				})
+			}(index)
+		}
+
+		resolutions := make([]interface{}, psLen)
+		for resolution := range resolutionsChan {
+			resolutions[resolution[0].(int)] = resolution[1]
+		}
+		resolve(resolutions)
 	})
 }
 
