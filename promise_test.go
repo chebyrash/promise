@@ -250,6 +250,142 @@ func TestPromise_All3(t *testing.T) {
 	}
 }
 
+func TestRace(t *testing.T) {
+	type TestRaceTestCase struct {
+		Name string
+		Promises []*Promise
+		ExpectedResult interface{}
+		ExpectedError interface{}
+	}
+
+	FakeError := errors.New("FakeError")
+	FakeError2 := errors.New("FakeError2")
+	FakeError3 := errors.New("FakeError3")
+	BadPromiseError := errors.New("bad promise")
+
+	for _, tc := range []TestRaceTestCase{
+		{
+			Name: "No promises",
+			Promises: nil,
+			ExpectedResult: nil,
+			ExpectedError: nil,
+		},
+		{
+			Name: "With one passing promise (99)",
+			Promises: []*Promise{Resolve(99)},
+			ExpectedResult: 99,
+			ExpectedError: nil,
+		},
+		{
+			Name: "With one passing promise (nil)",
+			Promises: []*Promise{Resolve(nil)},
+			ExpectedResult: nil,
+			ExpectedError: nil,
+		},
+		{
+			Name: "With multiple passing promises (a, b, c)",
+			Promises: []*Promise{
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Second)
+					resolve('b')
+				}),
+				Resolve('a'),
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Second)
+					resolve('c')
+				}),
+			},
+			ExpectedResult: 'a',
+			ExpectedError: nil,
+		},
+		{
+			Name: "With one failing promise (FakeError)",
+			Promises: []*Promise{Reject(FakeError)},
+			ExpectedResult: nil,
+			ExpectedError: FakeError,
+		},
+		{
+			Name: "With multiple promises, and one failing (FakeError)",
+			Promises: []*Promise{
+				New(func(resolve func(interface{}), reject func(error)) {
+					time.Sleep(time.Second)
+					Resolve(99)
+				}),
+				Reject(FakeError),
+				New(func(resolve func(interface{}), reject func(error)) {
+					time.Sleep(time.Second)
+					Resolve(99)
+				}),
+			},
+			ExpectedResult: nil,
+			ExpectedError: FakeError,
+		},
+		{
+			Name: "With multiple failing promise (FakeError2)",
+			Promises: []*Promise{
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Second)
+					reject(FakeError)
+				}),
+				New(func (resolve func (interface{}), reject func (error)) {
+					reject(FakeError2)
+				}),
+				New(func (resolve func (interface{}), reject func (error)) {
+					time.Sleep(time.Second)
+					reject(FakeError3)
+				}),
+			},
+			ExpectedResult: nil,
+			ExpectedError: FakeError2,
+		},
+		{
+			Name: "With immediately rejecting promise",
+			Promises: func(ErrorObj *error) []*Promise {
+				var promises = make([]*Promise, 10)
+				for x := 0; x < 10; x++ {
+					if x == 8 {
+						promises[x] = Reject(*ErrorObj)
+						continue
+					}
+
+					promises[x] = func(i int) *Promise {
+						return New(func(resolve func(interface{}), reject func(error)) {
+							time.Sleep(time.Second * time.Duration(i+1))
+							resolve("All Good")
+						})
+					}(x)
+				}
+				return promises
+			}(&BadPromiseError),
+			ExpectedResult: nil,
+			ExpectedError: BadPromiseError,
+		},
+	} {
+		t.Run(tc.Name, func(t2 *testing.T) {
+			p := Race(tc.Promises...)
+
+			result, err := p.Await()
+
+			t2.Logf("Promise result: result %v;  err %v", result, err)
+
+			subTestName := fmt.Sprintf("Expect result: %v", tc.ExpectedResult)
+			t2.Run(subTestName, func(t3 *testing.T) {
+				if result != tc.ExpectedResult {
+					t3.Errorf("Expected %v;  Received %v", tc.ExpectedResult, result)
+				}
+			})
+
+			subTestName2 := fmt.Sprintf("Expect err: %v", tc.ExpectedError)
+			t2.Run(subTestName2, func(t3 *testing.T) {
+				if err != tc.ExpectedError {
+					t3.Errorf("Expected %v;  Received %v", tc.ExpectedError, err)
+				}
+			})
+		})
+	}
+
+}
+
 func TestAll(t *testing.T) {
 	type TestAllTestCase struct {
 		Name           string
@@ -392,170 +528,4 @@ func TestAll(t *testing.T) {
 		}) // test case run
 
 	} // test cases loop
-}
-
-func TestRace(t *testing.T) {
-	type TestRaceTestCase struct {
-		Name string
-		Promises []*Promise
-		ExpectedResult interface{}
-		ExpectedError interface{}
-	}
-
-	FakeError := errors.New("FakeError")
-	FakeError2 := errors.New("FakeError2")
-	FakeError3 := errors.New("FakeError3")
-	BadPromiseError := errors.New("bad promise")
-
-	for _, tc := range []TestRaceTestCase{
-		{
-			Name: "No promises",
-			Promises: nil,
-			ExpectedResult: nil,
-			ExpectedError: nil,
-		},
-		{
-			Name: "With one passing promise (99)",
-			Promises: []*Promise{Resolve(99)},
-			ExpectedResult: 99,
-			ExpectedError: nil,
-		},
-		{
-			Name: "With one passing promise (nil)",
-			Promises: []*Promise{Resolve(nil)},
-			ExpectedResult: nil,
-			ExpectedError: nil,
-		},
-		{
-			Name: "With multiple passing promises (a, b, c)",
-			Promises: []*Promise{
-				New(func (resolve func (interface{}), reject func (error)) {
-					time.Sleep(time.Second)
-					resolve('b')
-				}),
-				Resolve('a'),
-				New(func (resolve func (interface{}), reject func (error)) {
-					time.Sleep(time.Second)
-					resolve('c')
-				}),
-			},
-			ExpectedResult: 'a',
-			ExpectedError: nil,
-		},
-		{
-			Name: "With one failing promise (FakeError)",
-			Promises: []*Promise{Reject(FakeError)},
-			ExpectedResult: nil,
-			ExpectedError: FakeError,
-		},
-		{
-			Name: "With multiple promises, and one failing (FakeError)",
-			Promises: []*Promise{
-				New(func(resolve func(interface{}), reject func(error)) {
-					time.Sleep(time.Second)
-					Resolve(99)
-				}),
-				Reject(FakeError),
-				New(func(resolve func(interface{}), reject func(error)) {
-					time.Sleep(time.Second)
-					Resolve(99)
-				}),
-			},
-			ExpectedResult: nil,
-			ExpectedError: FakeError,
-		},
-		{
-			Name: "With multiple failing promise (FakeError2)",
-			Promises: []*Promise{
-				New(func (resolve func (interface{}), reject func (error)) {
-					time.Sleep(time.Second)
-					reject(FakeError)
-				}),
-				New(func (resolve func (interface{}), reject func (error)) {
-					reject(FakeError2)
-				}),
-				New(func (resolve func (interface{}), reject func (error)) {
-					time.Sleep(time.Second)
-					reject(FakeError3)
-				}),
-			},
-			ExpectedResult: nil,
-			ExpectedError: FakeError2,
-		},
-		{
-			Name: "",
-			Promises: func() []*Promise {
-				var promises = make([]*Promise, 10)
-				for x := 0; x < 10; x++ {
-					if x == 8 {
-						promises[x] = Reject(BadPromiseError)
-						continue
-					}
-
-					promises[x] = New(func(resolve func(interface{}), reject func(error)) {
-						time.Sleep(time.Second * time.Duration(x + 1))
-						resolve("All Good")
-					})
-				}
-				return promises
-			}(),
-			ExpectedResult: nil,
-			ExpectedError: BadPromiseError,
-		},
-	} {
-		t.Run(tc.Name, func(t2 *testing.T) {
-			p := Race(tc.Promises...)
-
-			result, err := p.Await()
-
-			t2.Logf("Promise result: result %v;  err %v", result, err)
-
-			subTestName := fmt.Sprintf("Expect result: %v", tc.ExpectedResult)
-			t2.Run(subTestName, func(t3 *testing.T) {
-				if result != tc.ExpectedResult {
-					t3.Errorf("Expected %v;  Received %v", tc.ExpectedResult, result)
-				}
-			})
-
-			subTestName2 := fmt.Sprintf("Expect err: %v", tc.ExpectedError)
-			t2.Run(subTestName2, func(t3 *testing.T) {
-				if err != tc.ExpectedError {
-					t3.Errorf("Expected %v;  Received %v", tc.ExpectedError, err)
-				}
-			})
-		})
-	}
-
-}
-
-// TODO: Fix tests with new style (or append it's test cases to previous test)
-// (see line 485 for example (sorry actually put it in place but wanted to give and example :-D)).
-func TestRace2(t *testing.T) {
-	var promises = make([]*Promise, 10)
-
-	for x := 0; x < 10; x++ {
-		if x == 8 {
-			promises[x] = Reject(errors.New("bad promise"))
-			continue
-		}
-
-		promises[x] = Resolve("All Good")
-	}
-
-	combined := Race(promises...)
-	result, err := combined.Await()
-
-	// If result got resolved ahead of err
-	if result != nil && err == nil {
-		_, ok := result.(string)
-		if !ok {
-			t.Error("Result is not a string, but should be")
-		} else {
-			return
-		}
-	} else if result == nil && err != nil {
-		if err.Error() != "bad promise" {
-			t.Error("Wrong error")
-		}
-	}
 }

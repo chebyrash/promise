@@ -5,8 +5,10 @@ import (
 	"sync"
 )
 
+type Status = int
+
 const (
-	pending = iota
+	pending Status = iota
 	fulfilled
 	rejected
 )
@@ -54,6 +56,14 @@ type Promise struct {
 
 	// WaitGroup allows to block until all callbacks are executed.
 	wg *sync.WaitGroup
+}
+
+// Result is used by methods that need to return result
+// 	objects (namely `AllSettled` method)
+type Result struct {
+	Status Status
+	Value  interface{}
+	Reason error
 }
 
 // New instantiates and returns a pointer to the Promise.
@@ -236,11 +246,11 @@ func All(promises ...*Promise) *Promise {
 	})
 }
 
-// Race takes one or more promises and returns a promise that resolves to the first resolved one or
-// 	rejects on the first rejected one.
+// Race waits until any of the promises is resolved or rejected.
+// If the returned promise resolves, it is resolved with the value of the first promise in the iterable
+// that resolved. If it rejects, it is rejected with the reason from the first promise that was rejected.
 func Race(promises ...*Promise) *Promise {
 	psLen := len(promises)
-
 	if psLen == 0 {
 		return Resolve(nil)
 	}
@@ -249,8 +259,8 @@ func Race(promises ...*Promise) *Promise {
 		resolutionsChan := make(chan interface{}, psLen)
 		errorChan := make(chan error, psLen)
 
-		for _, p := range promises {
-			p.Then(func(data interface{}) interface{} {
+		for _, promise := range promises {
+			promise.Then(func(data interface{}) interface{} {
 				resolutionsChan <- data
 				return data
 			}).Catch(func(err error) error {
@@ -259,18 +269,49 @@ func Race(promises ...*Promise) *Promise {
 			})
 		}
 
-		var resolution interface{}
+		select {
+		case resolution := <-resolutionsChan:
+			resolve(resolution)
+			return
 
-		for x := 0; x < psLen; x++ {
-			select {
-			case resolution = <-resolutionsChan:
-				resolve(resolution)
-				return
-			case err := <-errorChan:
-				reject(err)
-				return
-			}
+		case err := <-errorChan:
+			reject(err)
+			return
 		}
+	})
+}
+
+// AllSettled waits until all promises have settled (each may resolve, or reject).
+// Returns a promise that resolves after all of the given promises have either resolved or rejected,
+// with an array of objects that each describe the outcome of each promise.
+func AllSettled(promises ...*Promise) *Promise {
+	psLen := len(promises)
+	if psLen == 0 {
+		return Resolve(make([]Result, 0))
+	}
+
+	return New(func(resolve func(interface{}), reject func(error)) {
+		resolutionsChan := make(chan []interface{}, psLen)
+
+		for index, promise := range promises {
+			func(i int, p *Promise) {
+				promise.Then(func(data interface{}) interface{} {
+					r := Result{Value: data, Status: fulfilled}
+					resolutionsChan <- []interface{}{i, r}
+					return data
+				}).Catch(func(err error) error {
+					r := Result{Reason: err, Status: rejected}
+					resolutionsChan <- []interface{}{i, r}
+					return err
+				})
+			}(index, promise)
+		}
+
+		resolutions := make([]interface{}, psLen)
+		for resolution := range resolutionsChan {
+			resolutions[resolution[0].(int)] = resolution[1]
+		}
+		resolve(resolutions)
 	})
 }
 
