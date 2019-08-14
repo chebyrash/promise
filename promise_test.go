@@ -251,7 +251,7 @@ func TestPromise_All3(t *testing.T) {
 }
 
 func TestRace(t *testing.T) {
-	type TestRaceTestCase struct {
+	type RaceTestCase struct {
 		Name string
 		Promises []*Promise
 		ExpectedResult interface{}
@@ -263,7 +263,7 @@ func TestRace(t *testing.T) {
 	FakeError3 := errors.New("FakeError3")
 	BadPromiseError := errors.New("bad promise")
 
-	for _, tc := range []TestRaceTestCase{
+	for _, tc := range []RaceTestCase{
 		{
 			Name: "No promises",
 			Promises: nil,
