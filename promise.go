@@ -294,7 +294,7 @@ func AllSettled(promises ...*Promise) *Promise {
 		resolutionsChan := make(chan []interface{}, psLen)
 
 		for index, promise := range promises {
-			func(i int) {
+			func(i int, p *Promise) {
 				promise.Then(func(data interface{}) interface{} {
 					r := Result{Value: data, Status: fulfilled}
 					resolutionsChan <- []interface{}{i, r}
@@ -304,7 +304,7 @@ func AllSettled(promises ...*Promise) *Promise {
 					resolutionsChan <- []interface{}{i, r}
 					return err
 				})
-			}(index)
+			}(index, promise)
 		}
 
 		resolutions := make([]interface{}, psLen)

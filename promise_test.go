@@ -340,11 +340,11 @@ func TestRace(t *testing.T) {
 		},
 		{
 			Name: "With immediately rejecting promise",
-			Promises: func() []*Promise {
+			Promises: func(ErrorObj error) []*Promise {
 				var promises = make([]*Promise, 10)
 				for x := 0; x < 10; x++ {
 					if x == 8 {
-						promises[x] = Reject(BadPromiseError)
+						promises[x] = Reject(ErrorObj)
 						continue
 					}
 
@@ -354,7 +354,7 @@ func TestRace(t *testing.T) {
 					})
 				}
 				return promises
-			}(),
+			}(BadPromiseError),
 			ExpectedResult: nil,
 			ExpectedError: BadPromiseError,
 		},
