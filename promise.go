@@ -5,10 +5,8 @@ import (
 	"sync"
 )
 
-type Status = int
-
 const (
-	pending Status = iota
+	pending = iota
 	fulfilled
 	rejected
 )
@@ -56,14 +54,6 @@ type Promise struct {
 
 	// WaitGroup allows to block until all callbacks are executed.
 	wg *sync.WaitGroup
-}
-
-// Result is used by methods that need to return result
-// 	objects (namely `AllSettled` method)
-type Result struct {
-	Status Status
-	Value  interface{}
-	Reason error
 }
 
 // New instantiates and returns a pointer to the Promise.
@@ -287,24 +277,22 @@ func Race(promises ...*Promise) *Promise {
 func AllSettled(promises ...*Promise) *Promise {
 	psLen := len(promises)
 	if psLen == 0 {
-		return Resolve(make([]Result, 0))
+		return Resolve(make([]interface{}, 0))
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
 		resolutionsChan := make(chan []interface{}, psLen)
 
 		for index, promise := range promises {
-			func(i int, p *Promise) {
+			func(i int) {
 				promise.Then(func(data interface{}) interface{} {
-					r := Result{Value: data, Status: fulfilled}
-					resolutionsChan <- []interface{}{i, r}
+					resolutionsChan <- []interface{}{i, data}
 					return data
 				}).Catch(func(err error) error {
-					r := Result{Reason: err, Status: rejected}
-					resolutionsChan <- []interface{}{i, r}
+					resolutionsChan <- []interface{}{i, err}
 					return err
 				})
-			}(index, promise)
+			}(index)
 		}
 
 		resolutions := make([]interface{}, psLen)
