@@ -246,24 +246,22 @@ func Race(promises ...*Promise) *Promise {
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolutionsChan := make(chan []interface{}, psLen)
+		resolutionsChan := make(chan interface{}, psLen)
 		errorChan := make(chan error, psLen)
 
-		for index, promise := range promises {
-			func(i int) {
-				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- []interface{}{i, data}
-					return data
-				}).Catch(func(err error) error {
-					errorChan <- err
-					return err
-				})
-			}(index)
+		for _, promise := range promises {
+			promise.Then(func(data interface{}) interface{} {
+				resolutionsChan <- data
+				return data
+			}).Catch(func(err error) error {
+				errorChan <- err
+				return err
+			})
 		}
 
 		select {
 		case resolution := <-resolutionsChan:
-			resolve(resolution[1])
+			resolve(resolution)
 			return
 
 		case err := <-errorChan:
