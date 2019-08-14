@@ -340,21 +340,23 @@ func TestRace(t *testing.T) {
 		},
 		{
 			Name: "With immediately rejecting promise",
-			Promises: func(ErrorObj error) []*Promise {
+			Promises: func(ErrorObj *error) []*Promise {
 				var promises = make([]*Promise, 10)
 				for x := 0; x < 10; x++ {
 					if x == 8 {
-						promises[x] = Reject(ErrorObj)
+						promises[x] = Reject(*ErrorObj)
 						continue
 					}
 
-					promises[x] = New(func(resolve func(interface{}), reject func(error)) {
-						time.Sleep(time.Second * time.Duration(x + 1))
-						resolve("All Good")
-					})
+					promises[x] = func(i int) *Promise {
+						return New(func(resolve func(interface{}), reject func(error)) {
+							time.Sleep(time.Second * time.Duration(i+1))
+							resolve("All Good")
+						})
+					}(x)
 				}
 				return promises
-			}(BadPromiseError),
+			}(&BadPromiseError),
 			ExpectedResult: nil,
 			ExpectedError: BadPromiseError,
 		},
