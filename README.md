@@ -67,7 +67,13 @@ If the returned promise resolves, it is resolved with an aggregating array of th
 ```
 Example:
 ```go
+var p1 = promise.Resolve(123)
+var p2 = promise.Resolve("Hello, World")
+var p3 = promise.Resolve([]string{"one", "two", "three"})
 
+result, _ := promise.All(p1, p2, p3).Await()
+fmt.Println(result)
+// Output: [123 Hello, World [one two three]]
 ```
 
 ### Promise.AllSettled
