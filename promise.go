@@ -310,7 +310,7 @@ func Resolve(resolution interface{}) *Promise {
 	})
 }
 
-// Reject returns a pointer to the Promise that has been rejected with a given err.
+// Reject returns a pointer to the Promise that has been rejected with a given error.
 func Reject(err error) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
 		reject(err)
