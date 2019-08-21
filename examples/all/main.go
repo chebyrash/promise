@@ -10,6 +10,6 @@ func main() {
 	var p2 = promise.Resolve("Hello, World")
 	var p3 = promise.Resolve([]string{"one", "two", "three"})
 
-	result, _ := promise.All(p1, p2, p3).Await()
-	fmt.Println(result)
+	results, _ := promise.All(p1, p2, p3).Await()
+	fmt.Println(results)
 }

@@ -32,7 +32,7 @@ type Promise struct {
 	// the promise, respectively. The executor normally initiates some
 	// asynchronous work, and then, once that completes, either calls the
 	// resolve function to resolve the promise or else rejects it if
-	// an err or panic occurred.
+	// an error or panic occurred.
 	executor func(resolve func(interface{}), reject func(error))
 
 	// Appends fulfillment to the promise,
@@ -46,7 +46,7 @@ type Promise struct {
 	// Stores the result passed to resolve()
 	result interface{}
 
-	// Stores the err passed to reject()
+	// Stores the error passed to reject()
 	err error
 
 	// Mutex protects against data race conditions.
@@ -188,8 +188,8 @@ func (promise *Promise) Catch(rejection func(err error) error) *Promise {
 }
 
 // Await is a blocking function that waits for all callbacks to be executed.
-// Returns value and err.
-// Call on an already resolved Promise to get its result and err
+// Returns value and error.
+// Call on an already resolved Promise to get its result and error
 func (promise *Promise) Await() (interface{}, error) {
 	promise.wg.Wait()
 	return promise.result, promise.err
@@ -296,7 +296,8 @@ func AllSettled(promises ...*Promise) *Promise {
 		}
 
 		resolutions := make([]interface{}, psLen)
-		for resolution := range resolutionsChan {
+		for x := 0; x < psLen; x++ {
+			resolution := <-resolutionsChan
 			resolutions[resolution[0].(int)] = resolution[1]
 		}
 		resolve(resolutions)

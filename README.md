@@ -58,7 +58,7 @@ p.
 p.Await()
 ```
 
-## Helper Methods
+## Methods
 
 ### Promise.All
 ```text
@@ -71,9 +71,9 @@ var p1 = promise.Resolve(123)
 var p2 = promise.Resolve("Hello, World")
 var p3 = promise.Resolve([]string{"one", "two", "three"})
 
-result, _ := promise.All(p1, p2, p3).Await()
-fmt.Println(result)
-// Output: [123 Hello, World [one two three]]
+results, _ := promise.All(p1, p2, p3).Await()
+fmt.Println(results)
+// [123 Hello, World [one two three]]
 ```
 
 ### Promise.AllSettled
@@ -83,7 +83,20 @@ Returns a promise that resolves after all of the given promises have either reso
 ```
 Example:
 ```go
+var p1 = promise.Resolve(123)
+var p2 = promise.Reject(errors.New("something wrong"))
 
+results, _ := promise.AllSettled(p1, p2).Await()
+for _, result := range results.([]interface{}) {
+    switch value := result.(type) {
+    case error:
+        fmt.Printf("Bad error occurred: %s\n", value.Error())
+    default:
+        fmt.Printf("Other result type: %d\n", value.(int))
+    }
+}
+// Other result type: 123
+// Bad error occurred: something wrong
 ```
 
 ### Promise.Race
@@ -93,7 +106,15 @@ If the returned promise resolves, it is resolved with the value of the first pro
 ```
 Example:
 ```go
+var p1 = promise.Resolve("Promise 1")
+var p2 = promise.Resolve("Promise 2")
 
+fastestResult, _ := promise.Race(p1, p2).Await()
+
+fmt.Printf("Both resolve, but %s is faster\n", fastestResult)
+// Both resolve, but Promise 1 is faster
+// OR
+// Both resolve, but Promise 2 is faster
 ```
 
 ### Promise.Resolve
@@ -102,7 +123,10 @@ Returns a new Promise object that is resolved with the given value. If the value
 ```
 Example:
 ```go
-
+var p1 = promise.Resolve("Hello, World")
+result, _ := p1.Await()
+fmt.Println(result)
+// Hello, World
 ```
 
 ### Promise.Reject
@@ -111,7 +135,10 @@ Returns a new Promise object that is rejected with the given reason.
 ```
 Example:
 ```go
-
+var p1 = promise.Reject(errors.New("bad error"))
+_, err := p1.Await()
+fmt.Println(err)
+// bad error
 ```
 
 ## Examples
