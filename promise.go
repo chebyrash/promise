@@ -304,14 +304,14 @@ func AllSettled(promises ...*Promise) *Promise {
 	})
 }
 
-// Resolve returns a pointer to the Promise that has been resolved with a given value.
+// Resolve returns a Promise that has been resolved with a given value.
 func Resolve(resolution interface{}) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
 		resolve(resolution)
 	})
 }
 
-// Reject returns a pointer to the Promise that has been rejected with a given error.
+// Reject returns a Promise that has been rejected with a given error.
 func Reject(err error) *Promise {
 	return New(func(resolve func(interface{}), reject func(error)) {
 		reject(err)
