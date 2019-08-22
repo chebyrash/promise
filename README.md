@@ -118,9 +118,9 @@ fmt.Printf("Both resolve, but %s is faster\n", fastestResult)
 ```
 
 ### Resolve
-```text
-Returns a new Promise object that is resolved with the given value. If the value is a thenable (i.e. has a then method), the returned promise will "follow" that thenable, adopting its eventual state; otherwise the returned promise will be fulfilled with the value. Generally, if you don't know if a value is a promise or not, Promise.resolve(value) it instead and work with the return value as a promise.
-```
+
+Returns a new Promise that is resolved with the given value. If the value is a thenable (i.e. has a then method), the returned promise will "follow" that thenable, adopting its eventual state; otherwise the returned promise will be fulfilled with the value.
+
 Example:
 ```go
 var p1 = promise.Resolve("Hello, World")
@@ -130,9 +130,9 @@ fmt.Println(result)
 ```
 
 ### Reject
-```text
-Returns a new Promise object that is rejected with the given reason.
-```
+
+Returns a new Promise that is rejected with the given reason.
+
 Example:
 ```go
 var p1 = promise.Reject(errors.New("bad error"))
