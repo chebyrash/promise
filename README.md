@@ -58,6 +58,89 @@ p.
 p.Await()
 ```
 
+## Methods
+
+### All
+
+Wait for all promises to be resolved, or for any to be rejected.
+If the returned promise resolves, it is resolved with an aggregating array of the values from the resolved promises in the same order as defined in the iterable of multiple promises. If it rejects, it is rejected with the reason from the first promise in the iterable that was rejected.
+
+Example:
+```go
+var p1 = promise.Resolve(123)
+var p2 = promise.Resolve("Hello, World")
+var p3 = promise.Resolve([]string{"one", "two", "three"})
+
+results, _ := promise.All(p1, p2, p3).Await()
+fmt.Println(results)
+// [123 Hello, World [one two three]]
+```
+
+### AllSettled
+
+Wait until all promises have settled (each may resolve, or reject).
+Returns a promise that resolves after all of the given promises have either resolved or rejected, with an array of objects that each describe the outcome of each promise.
+
+Example:
+```go
+var p1 = promise.Resolve(123)
+var p2 = promise.Reject(errors.New("something wrong"))
+
+results, _ := promise.AllSettled(p1, p2).Await()
+for _, result := range results.([]interface{}) {
+    switch value := result.(type) {
+    case error:
+        fmt.Printf("Bad error occurred: %s\n", value.Error())
+    default:
+        fmt.Printf("Other result type: %d\n", value.(int))
+    }
+}
+// Other result type: 123
+// Bad error occurred: something wrong
+```
+
+### Race
+
+Wait until any of the promises is resolved or rejected.
+If the returned promise resolves, it is resolved with the value of the first promise in the iterable that resolved. If it rejects, it is rejected with the reason from the first promise that was rejected.
+
+Example:
+```go
+var p1 = promise.Resolve("Promise 1")
+var p2 = promise.Resolve("Promise 2")
+
+fastestResult, _ := promise.Race(p1, p2).Await()
+
+fmt.Printf("Both resolve, but %s is faster\n", fastestResult)
+// Both resolve, but Promise 1 is faster
+// OR
+// Both resolve, but Promise 2 is faster
+```
+
+### Resolve
+
+Returns a new Promise that is resolved with the given value. If the value is a thenable (i.e. has a then method), the returned promise will "follow" that thenable, adopting its eventual state; otherwise the returned promise will be fulfilled with the value.
+
+Example:
+```go
+var p1 = promise.Resolve("Hello, World")
+result, _ := p1.Await()
+fmt.Println(result)
+// Hello, World
+```
+
+### Reject
+
+Returns a new Promise that is rejected with the given reason.
+
+Example:
+```go
+var p1 = promise.Reject(errors.New("bad error"))
+_, err := p1.Await()
+fmt.Println(err)
+// bad error
+```
+
 ## Examples
 
 ### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
@@ -164,7 +247,7 @@ func main() {
     return nil
   })
 
-  promise.AwaitAll(factorial1, factorial2, factorial3)
+  promise.All(factorial1, factorial2, factorial3).Await()
 }
 ```
 
