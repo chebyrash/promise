@@ -162,11 +162,11 @@ func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Pr
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	switch {
-	case promise.state == pending:
+	switch promise.state {
+	case pending:
 		promise.wg.Add(1)
 		promise.then = append(promise.then, fulfillment)
-	case promise.state == fulfilled:
+	case fulfilled:
 		promise.result = fulfillment(promise.result)
 	}
 
@@ -178,11 +178,11 @@ func (promise *Promise) Catch(rejection func(err error) error) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	switch {
-	case promise.state == pending:
+	switch promise.state {
+	case pending:
 		promise.wg.Add(1)
 		promise.catch = append(promise.catch, rejection)
-	case promise.state == rejected:
+	case rejected:
 		promise.err = rejection(promise.err)
 	}
 
@@ -264,11 +264,9 @@ func Race(promises ...*Promise) *Promise {
 		select {
 		case resolution := <-resolutionsChan:
 			resolve(resolution)
-			return
 
 		case err := <-errorChan:
 			reject(err)
-			return
 		}
 	})
 }
