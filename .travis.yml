@@ -1,8 +1,7 @@
 language: go
 
 go:
-  - tip
-  - stable
+  - 1.x
     
 script:
-  - go test -race -count 10000 ./...
+  - go test -v -race -count 10000 ./...
