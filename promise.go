@@ -162,10 +162,11 @@ func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Pr
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	if promise.state == pending {
+	switch {
+	case promise.state == pending:
 		promise.wg.Add(1)
 		promise.then = append(promise.then, fulfillment)
-	} else if promise.state == fulfilled {
+	case promise.state == fulfilled:
 		promise.result = fulfillment(promise.result)
 	}
 
@@ -177,10 +178,11 @@ func (promise *Promise) Catch(rejection func(err error) error) *Promise {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	if promise.state == pending {
+	switch {
+	case promise.state == pending:
 		promise.wg.Add(1)
 		promise.catch = append(promise.catch, rejection)
-	} else if promise.state == rejected {
+	case promise.state == rejected:
 		promise.err = rejection(promise.err)
 	}
 
