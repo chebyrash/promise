@@ -7,9 +7,15 @@
 ## About
 Promises library for Golang. Inspired by [JS Promises.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
 
-Supports automatic panic recovery and nested promise flattening.
+Supports:
 
-## Installation
+• Automatic panic recovery
+
+• Nested promise flattening
+
+• Promise cancellation (WIP)
+
+## Install
 
     $ go get -u github.com/chebyrash/promise
 
