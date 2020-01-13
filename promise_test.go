@@ -264,8 +264,18 @@ func TestPromise_AllSettled(t *testing.T) {
 	}
 }
 
-func TestPromise_Race(t *testing.T) {
+func TestPromise_Race1(t *testing.T) {
 	var p1 = Resolve("Promise 1")
+	var p2 = Resolve("Promise 2")
+
+	_, err := Race(p1, p2).Await()
+	if err != nil {
+		t.Error("Combined promise failed for some reason")
+	}
+}
+
+func TestPromise_Race2(t *testing.T) {
+	var p1 = Reject(errors.New("Promise 1"))
 	var p2 = Reject(errors.New("Promise 2"))
 
 	_, err := Race(p1, p2).Await()
