@@ -21,20 +21,11 @@ func main() {
 	var factorial2 = findFactorialPromise(10)
 	var factorial3 = findFactorialPromise(15)
 
-	factorial1.Then(func(data interface{}) interface{} {
-		fmt.Println("Result of 5! is", data)
-		return nil
-	})
+	// Results calculated asynchronously
+	results, _ := promise.All(factorial1, factorial2, factorial3).Await()
+	values := results.([]interface{})
 
-	factorial2.Then(func(data interface{}) interface{} {
-		fmt.Println("Result of 10! is", data)
-		return nil
-	})
-
-	factorial3.Then(func(data interface{}) interface{} {
-		fmt.Println("Result of 15! is", data)
-		return nil
-	})
-
-	promise.All(factorial1, factorial2, factorial3).Await()
+	fmt.Println("Result of 5! is", values[0])
+	fmt.Println("Result of 10! is", values[1])
+	fmt.Println("Result of 15! is", values[2])
 }

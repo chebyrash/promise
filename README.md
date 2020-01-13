@@ -13,7 +13,7 @@ Supports:
 
 • Nested promise flattening
 
-• Promise cancellation (WIP)
+• Promise cancellation
 
 ## Install
 
@@ -42,7 +42,8 @@ var p = promise.New(func(resolve func(interface{}), reject func(error)) {
   // panic() == reject()
 })
 
-// A promise is a returned object to which you attach callbacks.
+// You may continue working with the result of 
+// a previous async operation.
 p.Then(func(data interface{}) interface{} {
   fmt.Println("The result is:", data)
   return data.(int) + 1
@@ -97,9 +98,9 @@ results, _ := promise.AllSettled(p1, p2).Await()
 for _, result := range results.([]interface{}) {
     switch value := result.(type) {
     case error:
-        fmt.Printf("Bad error occurred: %s\n", value.Error())
+        fmt.Printf("Bad error occurred: %s", value.Error())
     default:
-        fmt.Printf("Other result type: %d\n", value.(int))
+        fmt.Printf("Other result type: %d", value.(int))
     }
 }
 // Other result type: 123
@@ -118,7 +119,7 @@ var p2 = promise.Resolve("Promise 2")
 
 fastestResult, _ := promise.Race(p1, p2).Await()
 
-fmt.Printf("Both resolve, but %s is faster\n", fastestResult)
+fmt.Printf("Both resolve, but %s is faster", fastestResult)
 // Both resolve, but Promise 1 is faster
 // OR
 // Both resolve, but Promise 2 is faster
@@ -224,37 +225,28 @@ func main() {
 
 ```go
 func findFactorial(n int) int {
-  if n == 1 {
-    return 1
-  }
-  return n * findFactorial(n-1)
+	if n == 1 {
+		return 1
+	}
+	return n * findFactorial(n-1)
 }
 
 func findFactorialPromise(n int) *promise.Promise {
-  return promise.Resolve(findFactorial(n))
+	return promise.Resolve(findFactorial(n))
 }
 
 func main() {
-  var factorial1 = findFactorialPromise(5)
-  var factorial2 = findFactorialPromise(10)
-  var factorial3 = findFactorialPromise(15)
-    
-  factorial1.Then(func(data interface{}) interface{} {
-    fmt.Println("Result of 5! is", data)
-    return nil
-  })
+	var factorial1 = findFactorialPromise(5)
+	var factorial2 = findFactorialPromise(10)
+	var factorial3 = findFactorialPromise(15)
 
-  factorial2.Then(func(data interface{}) interface{} {
-    fmt.Println("Result of 10! is", data)
-    return nil
-  })
-  
-  factorial3.Then(func(data interface{}) interface{} {
-    fmt.Println("Result of 15! is", data)
-    return nil
-  })
+	// Results calculated asynchronously
+	results, _ := promise.All(factorial1, factorial2, factorial3).Await()
+	values := results.([]interface{})
 
-  promise.All(factorial1, factorial2, factorial3).Await()
+	fmt.Println("Result of 5! is", values[0])
+	fmt.Println("Result of 10! is", values[1])
+	fmt.Println("Result of 15! is", values[2])
 }
 ```
 
