@@ -1,3 +1,3 @@
 module github.com/chebyrash/promise
 
-go 1.14
+go 1.13
