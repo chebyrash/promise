@@ -15,7 +15,7 @@ Supports:
 
 • Promise cancellation
 
-Note that the library **will be updated** as soon as generics arrive in Go 2.0 to allow for greater type safety, less boilerplate and beter performance
+Note that the library **will be updated** as soon as generics arrive in Go 2.0 to allow for greater type safety, less boilerplate and better performance
 
 ## Install
 
