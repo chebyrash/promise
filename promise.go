@@ -50,27 +50,25 @@ type Promise struct {
 	err error
 
 	// Mutex protects against data race conditions.
-	mutex *sync.Mutex
+	mutex sync.Mutex
 
 	// WaitGroup allows to block until all callbacks are executed.
-	wg *sync.WaitGroup
+	wg sync.WaitGroup
 }
 
 // New instantiates and returns a pointer to the Promise.
 func New(executor func(resolve func(interface{}), reject func(error))) *Promise {
-	var wg = &sync.WaitGroup{}
-	wg.Add(1)
-
 	var promise = &Promise{
 		state:    pending,
 		executor: executor,
-		then:     make([]func(interface{}) interface{}, 0),
-		catch:    make([]func(error) error, 0),
+		then:     nil,
+		catch:    nil,
 		result:   nil,
 		err:      nil,
-		mutex:    &sync.Mutex{},
-		wg:       wg,
+		mutex:    sync.Mutex{},
+		wg:       sync.WaitGroup{},
 	}
+	promise.wg.Add(1)
 
 	go func() {
 		defer promise.handlePanic()
@@ -207,14 +205,19 @@ func All(promises ...*Promise) *Promise {
 		return Resolve(make([]interface{}, 0))
 	}
 
+	type resolution struct {
+		index int
+		data  interface{}
+	}
+
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolutionsChan := make(chan []interface{}, psLen)
+		resolutionsChan := make(chan resolution, psLen)
 		errorChan := make(chan error, psLen)
 
 		for index, promise := range promises {
 			func(i int) {
 				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- []interface{}{i, data}
+					resolutionsChan <- resolution{i, data}
 					return data
 				}).Catch(func(err error) error {
 					errorChan <- err
@@ -227,7 +230,7 @@ func All(promises ...*Promise) *Promise {
 		for x := 0; x < psLen; x++ {
 			select {
 			case resolution := <-resolutionsChan:
-				resolutions[resolution[0].(int)] = resolution[1]
+				resolutions[resolution.index] = resolution.data
 
 			case err := <-errorChan:
 				reject(err)
@@ -277,19 +280,24 @@ func Race(promises ...*Promise) *Promise {
 func AllSettled(promises ...*Promise) *Promise {
 	psLen := len(promises)
 	if psLen == 0 {
-		return Resolve(make([]interface{}, 0))
+		return Resolve(nil)
+	}
+
+	type resolution struct {
+		index int
+		data  interface{}
 	}
 
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolutionsChan := make(chan []interface{}, psLen)
+		resolutionsChan := make(chan resolution, psLen)
 
 		for index, promise := range promises {
 			func(i int) {
 				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- []interface{}{i, data}
+					resolutionsChan <- resolution{i, data}
 					return data
 				}).Catch(func(err error) error {
-					resolutionsChan <- []interface{}{i, err}
+					resolutionsChan <- resolution{i, err}
 					return err
 				})
 			}(index)
@@ -298,7 +306,7 @@ func AllSettled(promises ...*Promise) *Promise {
 		resolutions := make([]interface{}, psLen)
 		for x := 0; x < psLen; x++ {
 			resolution := <-resolutionsChan
-			resolutions[resolution[0].(int)] = resolution[1]
+			resolutions[resolution.index] = resolution.data
 		}
 		resolve(resolutions)
 	})
