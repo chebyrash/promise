@@ -56,6 +56,11 @@ type Promise struct {
 	wg sync.WaitGroup
 }
 
+type resolutionHelper struct {
+	index int
+	data  interface{}
+}
+
 // New instantiates and returns a pointer to the Promise.
 func New(executor func(resolve func(interface{}), reject func(error))) *Promise {
 	var promise = &Promise{
@@ -205,19 +210,14 @@ func All(promises ...*Promise) *Promise {
 		return Resolve(make([]interface{}, 0))
 	}
 
-	type resolution struct {
-		index int
-		data  interface{}
-	}
-
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolutionsChan := make(chan resolution, psLen)
+		resolutionsChan := make(chan resolutionHelper, psLen)
 		errorChan := make(chan error, psLen)
 
 		for index, promise := range promises {
 			func(i int) {
 				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- resolution{i, data}
+					resolutionsChan <- resolutionHelper{i, data}
 					return data
 				}).Catch(func(err error) error {
 					errorChan <- err
@@ -283,21 +283,16 @@ func AllSettled(promises ...*Promise) *Promise {
 		return Resolve(nil)
 	}
 
-	type resolution struct {
-		index int
-		data  interface{}
-	}
-
 	return New(func(resolve func(interface{}), reject func(error)) {
-		resolutionsChan := make(chan resolution, psLen)
+		resolutionsChan := make(chan resolutionHelper, psLen)
 
 		for index, promise := range promises {
 			func(i int) {
 				promise.Then(func(data interface{}) interface{} {
-					resolutionsChan <- resolution{i, data}
+					resolutionsChan <- resolutionHelper{i, data}
 					return data
 				}).Catch(func(err error) error {
-					resolutionsChan <- resolution{i, err}
+					resolutionsChan <- resolutionHelper{i, err}
 					return err
 				})
 			}(index)
