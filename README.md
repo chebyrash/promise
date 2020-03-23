@@ -1,8 +1,7 @@
 # PROMISE
 [![Go Report Card](https://goreportcard.com/badge/github.com/chebyrash/promise)](https://goreportcard.com/report/github.com/chebyrash/promise)
 [![Build Status](https://travis-ci.org/chebyrash/promise.svg?branch=master)](https://travis-ci.org/chebyrash/promise)
-[![](https://godoc.org/github.com/chebyrash/promise?status.svg)](http://godoc.org/github.com/chebyrash/promise)
-[![HitCount](http://hits.dwyl.io/chebyrash/promise.svg)](http://hits.dwyl.io/chebyrash/promise)
+[![](https://godoc.org/github.com/chebyrash/promise?status.svg)](https://pkg.go.dev/github.com/chebyrash/promise?tab=doc)
 
 ## About
 Promises library for Golang. Inspired by [JS Promises.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
