@@ -95,9 +95,7 @@ func TestPromise_Catch(t *testing.T) {
 				t.Error("Error doesn't propagate")
 			}
 			return nil
-		})
-
-	promise.Then(func(data interface{}) interface{} {
+		}).Then(func(data interface{}) interface{} {
 		t.Error("Then triggered in .Catch test")
 		return nil
 	})

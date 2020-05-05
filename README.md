@@ -44,8 +44,8 @@ var p = promise.New(func(resolve func(interface{}), reject func(error)) {
 })
 
 // You may continue working with the result of 
-// a previous async operation.
-p.Then(func(data interface{}) interface{} {
+// a previous async operation. Calling .Then returns a new promise.
+var resultP = p.Then(func(data interface{}) interface{} {
   fmt.Println("The result is:", data)
   return data.(int) + 1
 })
@@ -53,7 +53,8 @@ p.Then(func(data interface{}) interface{} {
 // Callbacks can be added even after the success or failure of the asynchronous operation.
 // Multiple callbacks may be added by calling .Then or .Catch several times,
 // to be executed independently in insertion order.
-p.
+// Each call returns a new promise, allowing for branching chains of promises.
+var caughtP = p.
   Then(func(data interface{}) interface{} {
     fmt.Println("The new result is:", data)
     return nil
@@ -64,10 +65,17 @@ p.
   })
 
 // Since callbacks are executed asynchronously you can wait for them.
-p.Await()
+
+// Wait for the result
+resultP.Await()
+
+// Wait for the caught branch
+caughtP.Await()
 ```
 
 ## Methods
+
+All methods except `.Await()` return new promises allowing for branching logic.
 
 ### All
 

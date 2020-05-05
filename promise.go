@@ -35,13 +35,11 @@ type Promise struct {
 	// an error or panic occurred.
 	executor func(resolve func(interface{}), reject func(error))
 
-	// Appends fulfillment to the promise,
-	// and returns a new promise.
-	then []func(data interface{}) interface{}
+	// Stores a fulfilment for the promise, might be nil.
+	then func(data interface{}) interface{}
 
-	// Appends a rejection handler to the promise,
-	// and returns a new promise.
-	catch []func(err error) error
+	// Stores the catch handlers for the promise
+	catch func(err error) error
 
 	// Stores the result passed to resolve()
 	result interface{}
@@ -73,6 +71,7 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 		mutex:    sync.Mutex{},
 		wg:       sync.WaitGroup{},
 	}
+	// This promise has a WG, call it wgA
 	promise.wg.Add(1)
 
 	go func() {
@@ -95,6 +94,7 @@ func (promise *Promise) resolve(resolution interface{}) {
 	case *Promise:
 		res, err := result.Await()
 		if err != nil {
+			// unlock the mutex before rejecting
 			promise.mutex.Unlock()
 			promise.reject(err)
 			return
@@ -104,16 +104,13 @@ func (promise *Promise) resolve(resolution interface{}) {
 		promise.result = result
 	}
 
-	promise.wg.Done()
-	for range promise.catch {
-		promise.wg.Done()
-	}
-
-	for _, fn := range promise.then {
-		switch result := fn(promise.result).(type) {
+	// Resolve the then first to keep our wait groups intact in case a returned promise rejects
+	if promise.then != nil {
+		switch result := promise.then(promise.result).(type) {
 		case *Promise:
 			res, err := result.Await()
 			if err != nil {
+				// unlock the mutex before rejecting
 				promise.mutex.Unlock()
 				promise.reject(err)
 				return
@@ -122,6 +119,15 @@ func (promise *Promise) resolve(resolution interface{}) {
 		default:
 			promise.result = result
 		}
+		// We're a copy of a promise since we have a then, resolve wgC
+		promise.wg.Done()
+	}
+
+	// Resolve wgA
+	promise.wg.Done()
+
+	if promise.catch != nil {
+		// Resolve wgB
 		promise.wg.Done()
 	}
 
@@ -140,13 +146,17 @@ func (promise *Promise) reject(err error) {
 
 	promise.err = err
 
+	// Resolve wgA
 	promise.wg.Done()
-	for range promise.then {
+
+	// We're a copy of a promise since we have a then, resolve wgC
+	if promise.then != nil {
 		promise.wg.Done()
 	}
 
-	for _, fn := range promise.catch {
-		promise.err = fn(promise.err)
+	if promise.catch != nil {
+		promise.err = promise.catch(promise.err)
+		// Resolve wgB
 		promise.wg.Done()
 	}
 
@@ -160,36 +170,59 @@ func (promise *Promise) handlePanic() {
 	}
 }
 
-// Then appends fulfillment handler to the Promise, and returns a new promise.
-func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Promise {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
+// copy creates a copy of a Promise that resolves when it does, it returns the new Promise.
+func (promise *Promise) copy() *Promise {
+	p := New(func(resolve func(interface{}), reject func(error)) {
+		data, err := promise.Await()
 
-	switch promise.state {
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolve(data)
+	})
+
+	return p
+}
+
+// Then appends a fulfillment handler to the Promise, and returns a new promise.
+func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Promise {
+	promiseCopy := promise.copy()
+
+	promiseCopy.mutex.Lock()
+	defer promiseCopy.mutex.Unlock()
+
+	switch promiseCopy.state {
 	case pending:
-		promise.wg.Add(1)
-		promise.then = append(promise.then, fulfillment)
+		// Add wgC on the _copy_.
+		promiseCopy.wg.Add(1)
+		promiseCopy.then = fulfillment
 	case fulfilled:
-		promise.result = fulfillment(promise.result)
+		promiseCopy.result = fulfillment(promiseCopy.result)
 	}
 
-	return promise
+	return promiseCopy
 }
+
 
 // Catch appends a rejection handler callback to the Promise, and returns a new promise.
 func (promise *Promise) Catch(rejection func(err error) error) *Promise {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
+	promiseCopy := promise.copy()
 
-	switch promise.state {
+	promiseCopy.mutex.Lock()
+	defer promiseCopy.mutex.Unlock()
+
+	switch promiseCopy.state {
 	case pending:
-		promise.wg.Add(1)
-		promise.catch = append(promise.catch, rejection)
+		// Add wgB on the _copy_.
+		promiseCopy.wg.Add(1)
+		promiseCopy.catch = rejection
 	case rejected:
-		promise.err = rejection(promise.err)
+		promiseCopy.err = rejection(promiseCopy.err)
 	}
 
-	return promise
+	return promiseCopy
 }
 
 // Await is a blocking function that waits for all callbacks to be executed.
