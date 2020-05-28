@@ -4,7 +4,7 @@
 [![](https://godoc.org/github.com/chebyrash/promise?status.svg)](https://pkg.go.dev/github.com/chebyrash/promise?tab=doc)
 
 ## About
-Promises library for Golang. Inspired by [JS Promises.](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
+Promises library for Golang. Inspired by [JS Promises](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
 
 Supports:
 
@@ -44,8 +44,8 @@ var p = promise.New(func(resolve func(interface{}), reject func(error)) {
 })
 
 // You may continue working with the result of 
-// a previous async operation. Calling .Then returns a new promise.
-var resultP = p.Then(func(data interface{}) interface{} {
+// a previous async operation.
+p.Then(func(data interface{}) interface{} {
   fmt.Println("The result is:", data)
   return data.(int) + 1
 })
@@ -53,8 +53,7 @@ var resultP = p.Then(func(data interface{}) interface{} {
 // Callbacks can be added even after the success or failure of the asynchronous operation.
 // Multiple callbacks may be added by calling .Then or .Catch several times,
 // to be executed independently in insertion order.
-// Each call returns a new promise, allowing for branching chains of promises.
-var caughtP = p.
+p.
   Then(func(data interface{}) interface{} {
     fmt.Println("The new result is:", data)
     return nil
@@ -65,17 +64,10 @@ var caughtP = p.
   })
 
 // Since callbacks are executed asynchronously you can wait for them.
-
-// Wait for the result
-resultP.Await()
-
-// Wait for the caught branch
-caughtP.Await()
+p.Await()
 ```
 
 ## Methods
-
-All methods except `.Await()` return new promises allowing for branching logic.
 
 ### All
 

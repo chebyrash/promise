@@ -5,12 +5,6 @@ import (
 	"sync"
 )
 
-const (
-	pending = iota
-	fulfilled
-	rejected
-)
-
 // A Promise is a proxy for a value not necessarily known when
 // the promise is created. It allows you to associate handlers
 // with an asynchronous action's eventual success value or failure reason.
@@ -18,11 +12,7 @@ const (
 // instead of immediately returning the final value, the asynchronous method
 // returns a promise to supply the value at some point in the future.
 type Promise struct {
-	// A Promise is in one of these states:
-	// Pending - 0. Initial state, neither fulfilled nor rejected.
-	// Fulfilled - 1. Operation completed successfully.
-	// Rejected - 2. Operation failed.
-	state int
+	pending bool
 
 	// A function that is passed with the arguments resolve and reject.
 	// The executor function is executed immediately by the Promise implementation,
@@ -34,12 +24,6 @@ type Promise struct {
 	// resolve function to resolve the promise or else rejects it if
 	// an error or panic occurred.
 	executor func(resolve func(interface{}), reject func(error))
-
-	// Stores a fulfilment for the promise, might be nil.
-	then func(data interface{}) interface{}
-
-	// Stores the catch handlers for the promise
-	catch func(err error) error
 
 	// Stores the result passed to resolve()
 	result interface{}
@@ -54,24 +38,17 @@ type Promise struct {
 	wg sync.WaitGroup
 }
 
-type resolutionHelper struct {
-	index int
-	data  interface{}
-}
-
-// New instantiates and returns a pointer to the Promise.
+// New instantiates and returns a pointer to a new Promise.
 func New(executor func(resolve func(interface{}), reject func(error))) *Promise {
 	var promise = &Promise{
-		state:    pending,
+		pending:  true,
 		executor: executor,
-		then:     nil,
-		catch:    nil,
 		result:   nil,
 		err:      nil,
 		mutex:    sync.Mutex{},
 		wg:       sync.WaitGroup{},
 	}
-	// This promise has a WG, call it wgA
+
 	promise.wg.Add(1)
 
 	go func() {
@@ -85,54 +62,26 @@ func New(executor func(resolve func(interface{}), reject func(error))) *Promise 
 func (promise *Promise) resolve(resolution interface{}) {
 	promise.mutex.Lock()
 
-	if promise.state != pending {
+	if !promise.pending {
 		promise.mutex.Unlock()
 		return
 	}
 
 	switch result := resolution.(type) {
 	case *Promise:
-		res, err := result.Await()
+		flattenedResult, err := result.Await()
 		if err != nil {
-			// unlock the mutex before rejecting
 			promise.mutex.Unlock()
 			promise.reject(err)
 			return
 		}
-		promise.result = res
+		promise.result = flattenedResult
 	default:
 		promise.result = result
 	}
+	promise.pending = false
 
-	// Resolve the then first to keep our wait groups intact in case a returned promise rejects
-	if promise.then != nil {
-		switch result := promise.then(promise.result).(type) {
-		case *Promise:
-			res, err := result.Await()
-			if err != nil {
-				// unlock the mutex before rejecting
-				promise.mutex.Unlock()
-				promise.reject(err)
-				return
-			}
-			promise.result = res
-		default:
-			promise.result = result
-		}
-		// We're a copy of a promise since we have a then, resolve wgC
-		promise.wg.Done()
-	}
-
-	// Resolve wgA
 	promise.wg.Done()
-
-	if promise.catch != nil {
-		// Resolve wgB
-		promise.wg.Done()
-	}
-
-	promise.state = fulfilled
-
 	promise.mutex.Unlock()
 }
 
@@ -140,27 +89,14 @@ func (promise *Promise) reject(err error) {
 	promise.mutex.Lock()
 	defer promise.mutex.Unlock()
 
-	if promise.state != pending {
+	if !promise.pending {
 		return
 	}
 
 	promise.err = err
+	promise.pending = false
 
-	// Resolve wgA
 	promise.wg.Done()
-
-	// We're a copy of a promise since we have a then, resolve wgC
-	if promise.then != nil {
-		promise.wg.Done()
-	}
-
-	if promise.catch != nil {
-		promise.err = promise.catch(promise.err)
-		// Resolve wgB
-		promise.wg.Done()
-	}
-
-	promise.state = rejected
 }
 
 func (promise *Promise) handlePanic() {
@@ -170,59 +106,30 @@ func (promise *Promise) handlePanic() {
 	}
 }
 
-// copy creates a copy of a Promise that resolves when it does, it returns the new Promise.
-func (promise *Promise) copy() *Promise {
-	p := New(func(resolve func(interface{}), reject func(error)) {
-		data, err := promise.Await()
-
+// Then appends fulfillment and rejection handlers to the promise,
+// and returns a new promise resolving to the return value of the called handler.
+func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Promise {
+	return New(func(resolve func(interface{}), reject func(error)) {
+		result, err := promise.Await()
 		if err != nil {
 			reject(err)
 			return
 		}
-
-		resolve(data)
+		resolve(fulfillment(result))
 	})
-
-	return p
 }
 
-// Then appends a fulfillment handler to the Promise, and returns a new promise.
-func (promise *Promise) Then(fulfillment func(data interface{}) interface{}) *Promise {
-	promiseCopy := promise.copy()
-
-	promiseCopy.mutex.Lock()
-	defer promiseCopy.mutex.Unlock()
-
-	switch promiseCopy.state {
-	case pending:
-		// Add wgC on the _copy_.
-		promiseCopy.wg.Add(1)
-		promiseCopy.then = fulfillment
-	case fulfilled:
-		promiseCopy.result = fulfillment(promiseCopy.result)
-	}
-
-	return promiseCopy
-}
-
-
-// Catch appends a rejection handler callback to the Promise, and returns a new promise.
+// Catch Appends a rejection handler to the promise,
+// and returns a new promise resolving to the return value of the handler.
 func (promise *Promise) Catch(rejection func(err error) error) *Promise {
-	promiseCopy := promise.copy()
-
-	promiseCopy.mutex.Lock()
-	defer promiseCopy.mutex.Unlock()
-
-	switch promiseCopy.state {
-	case pending:
-		// Add wgB on the _copy_.
-		promiseCopy.wg.Add(1)
-		promiseCopy.catch = rejection
-	case rejected:
-		promiseCopy.err = rejection(promiseCopy.err)
-	}
-
-	return promiseCopy
+	return New(func(resolve func(interface{}), reject func(error)) {
+		result, err := promise.Await()
+		if err != nil {
+			reject(rejection(err))
+			return
+		}
+		resolve(result)
+	})
 }
 
 // Await is a blocking function that waits for all callbacks to be executed.
@@ -231,6 +138,11 @@ func (promise *Promise) Catch(rejection func(err error) error) *Promise {
 func (promise *Promise) Await() (interface{}, error) {
 	promise.wg.Wait()
 	return promise.result, promise.err
+}
+
+type resolutionHelper struct {
+	index int
+	data  interface{}
 }
 
 // All waits for all promises to be resolved, or for any to be rejected.

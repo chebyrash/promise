@@ -40,7 +40,7 @@ func TestPromise_Then(t *testing.T) {
 	promise.Await()
 }
 
-func TestPromise_Then2(t *testing.T) {
+func TestPromise_ThenNested(t *testing.T) {
 	var promise = New(func(resolve func(interface{}), reject func(error)) {
 		resolve(New(func(res func(interface{}), rej func(error)) {
 			res("Hello, World")
@@ -50,28 +50,12 @@ func TestPromise_Then2(t *testing.T) {
 	promise.
 		Then(func(data interface{}) interface{} {
 			if data.(string) != "Hello, World" {
-				t.Error("Promise doesn't flatten")
+				t.Error("Resolved promise doesn't flatten")
 			}
 			return nil
 		}).
 		Catch(func(err error) error {
 			t.Error("Catch triggered in .Then test")
-			return nil
-		})
-
-	promise.Await()
-}
-
-func TestPromise_Then3(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
-		resolve(New(func(res func(interface{}), rej func(error)) {
-			rej(errors.New("nested fail"))
-		}))
-	})
-
-	promise.
-		Then(func(data interface{}) interface{} {
-			t.Error("Then triggered in .Catch test")
 			return nil
 		})
 
@@ -84,23 +68,48 @@ func TestPromise_Catch(t *testing.T) {
 	})
 
 	promise.
+		Then(func(data interface{}) interface{} {
+			t.Error("Then 1 triggered in .Catch test")
+			return nil
+		}).
 		Catch(func(err error) error {
 			if err.Error() == "very serious err" {
 				return errors.New("dealing with err at this stage")
 			}
-			return nil
+			return err
 		}).
 		Catch(func(err error) error {
 			if err.Error() != "dealing with err at this stage" {
 				t.Error("Error doesn't propagate")
 			}
+			return err
+		}).
+		Then(func(data interface{}) interface{} {
+			t.Error("Then 2 triggered in .Catch test")
 			return nil
 		})
 
-	promise.Then(func(data interface{}) interface{} {
-		t.Error("Then triggered in .Catch test")
-		return nil
+	promise.Await()
+}
+
+func TestPromise_CatchNested(t *testing.T) {
+	var promise = New(func(resolve func(interface{}), reject func(error)) {
+		resolve(New(func(res func(interface{}), rej func(error)) {
+			rej(errors.New("nested fail"))
+		}))
 	})
+
+	promise.
+		Then(func(data interface{}) interface{} {
+			t.Error("Then triggered in .Catch test")
+			return nil
+		}).
+		Catch(func(err error) error {
+			if err.Error() != "nested fail" {
+				t.Error("Rejected promise doesn't flatten")
+			}
+			return nil
+		})
 
 	promise.Await()
 }
