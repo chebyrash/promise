@@ -3,9 +3,10 @@ package main
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/chebyrash/promise"
 	"io/ioutil"
 	"net/http"
+
+	"github.com/chebyrash/promise"
 )
 
 func parseJSON(data []byte) *promise.Promise {
@@ -23,11 +24,8 @@ func parseJSON(data []byte) *promise.Promise {
 
 func main() {
 	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
-		var url = "https://httpbin.org/ip"
-
-		resp, err := http.Get(url)
+		resp, err := http.Get("https://httpbin.org/ip")
 		defer resp.Body.Close()
-
 		if err != nil {
 			reject(err)
 			return
@@ -38,38 +36,21 @@ func main() {
 			reject(err)
 			return
 		}
-
 		resolve(body)
 	})
 
-	requestPromise.
-		// Parse JSON body
+	// Parse JSON body in async manner
+	parsed, err := requestPromise.
 		Then(func(data interface{}) interface{} {
 			// This can be a promise, it will automatically flatten
 			return parseJSON(data.([]byte))
-		}).
-		// Work with parsed body
-		Then(func(data interface{}) interface{} {
-			var body = data.(map[string]string)
-
-			fmt.Println("[Inside Promise] Origin:", body["origin"])
-
-			return body
-		}).
-		Catch(func(err error) error {
-			fmt.Println(err.Error())
-			return nil
-		})
-
-	// Your resolved values can be extracted from the Promise
-	// But you are encouraged to handle them in .Then and .Catch
-	value, err := requestPromise.Await()
+		}).Await()
 
 	if err != nil {
-		fmt.Println("Error: " + err.Error())
+		fmt.Printf("Error: %s\n", err.Error())
 		return
 	}
 
-	origin := value.(map[string]string)["origin"]
-	fmt.Println("[Outside Promise] Origin: " + origin)
+	origin := parsed.(map[string]string)["origin"]
+	fmt.Printf("Origin: %s\n", origin)
 }

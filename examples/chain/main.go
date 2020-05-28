@@ -2,13 +2,12 @@ package main
 
 import (
 	"fmt"
+
 	"github.com/chebyrash/promise"
 )
 
 func main() {
-	var p = promise.Resolve(0)
-
-	p.
+	var p = promise.Resolve(nil).
 		Then(func(data interface{}) interface{} {
 			fmt.Println("I will execute first")
 			return nil

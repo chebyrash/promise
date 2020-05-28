@@ -152,77 +152,41 @@ fmt.Println(err)
 
 ## Examples
 
-### [HTTP Request](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
+### [HTTP Request](https://github.com/chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
-func parseJSON(data []byte) *promise.Promise {
-  return promise.New(func(resolve func(interface{}), reject func(error)) {
-    var body = make(map[string]string)
-    
-    err := json.Unmarshal(data, &body)
-    if err != nil {
-      reject(err)
-      return
-    }
+var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
+  resp, err := http.Get("https://httpbin.org/ip")
+  defer resp.Body.Close()
+  if err != nil {
+    reject(err)
+    return
+  }
 
-    resolve(body)
-  })
+  body, err := ioutil.ReadAll(resp.Body)
+  if err != nil {
+    reject(err)
+    return
+  }
+  resolve(body)
+})
+
+// Parse JSON body in async manner
+parsed, err := requestPromise.
+  Then(func(data interface{}) interface{} {
+    // This can be a promise, it will automatically flatten
+    return parseJSON(data.([]byte))
+  }).Await()
+
+if err != nil {
+  fmt.Printf("Error: %s\n", err.Error())
+  return
 }
 
-func main() {
-  var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
-    var url = "https://httpbin.org/ip"
-		
-    resp, err := http.Get(url)
-    defer resp.Body.Close()
-
-    if err != nil {
-      reject(err)
-      return
-    }
-
-    body, err := ioutil.ReadAll(resp.Body)
-    if err != nil {
-      reject(err)
-      return
-    }
-    
-    resolve(body)
-  })
-
-  requestPromise.
-    // Parse JSON body
-    Then(func(data interface{}) interface{} {
-      // This can be a promise, it will automatically flatten
-      return parseJSON(data.([]byte))
-    }).
-    // Work with parsed body
-    Then(func(data interface{}) interface{} {
-      var body = data.(map[string]string)
-
-      fmt.Println("[Inside Promise] Origin:", body["origin"])
-
-      return body
-    }).
-    Catch(func(error error) error {
-      fmt.Println(error.Error())
-      return nil
-    })
-  
-    // Your resolved values can be extracted from the Promise 
-    // But you are encouraged to handle them in .Then and .Catch 
-    value, err := requestPromise.Await()
-    
-    if err != nil {
-      fmt.Println("Error: " + err.Error())
-      return
-    }
-    
-    origin := value.(map[string]string)["origin"]
-    fmt.Println("[Outside Promise] Origin: " + origin)
-}
+origin := parsed.(map[string]string)["origin"]
+fmt.Printf("Origin: %s\n", origin)
 ```
 
-### [Finding Factorial](https://github.com/Chebyrash/promise/blob/master/examples/factorial/main.go)
+### [Finding Factorial](https://github.com/chebyrash/promise/blob/master/examples/factorial/main.go)
 
 ```go
 func findFactorial(n int) int {
@@ -253,9 +217,7 @@ func main() {
 
 ### [Chaining](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
-var p = promise.Resolve(0)
-
-p.
+var p = promise.Resolve(nil).
   Then(func(data interface{}) interface{} {
     fmt.Println("I will execute first")
     return nil
