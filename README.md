@@ -41,19 +41,17 @@ var p = promise.New(func(resolve func(interface{}), reject func(error)) {
   // If you forgot to check for errors and your function panics the promise will
   // automatically reject.
   // panic() == reject()
-})
+}).
+  // You may continue working with the result of
+  // a previous async operation.
+  Then(func(data interface{}) interface{} {
+    fmt.Println("The result is:", data)
+    return data.(int) + 1
+  }).
 
-// You may continue working with the result of 
-// a previous async operation.
-p.Then(func(data interface{}) interface{} {
-  fmt.Println("The result is:", data)
-  return data.(int) + 1
-})
-
-// Callbacks can be added even after the success or failure of the asynchronous operation.
-// Multiple callbacks may be added by calling .Then or .Catch several times,
-// to be executed independently in insertion order.
-p.
+  // Handlers can be added even after the success or failure of the asynchronous operation.
+  // Multiple handlers may be added by calling .Then or .Catch several times,
+  // to be executed independently in insertion order.
   Then(func(data interface{}) interface{} {
     fmt.Println("The new result is:", data)
     return nil
@@ -63,7 +61,7 @@ p.
     return nil
   })
 
-// Since callbacks are executed asynchronously you can wait for them.
+// Since handlers are executed asynchronously you can wait for them.
 p.Await()
 ```
 
