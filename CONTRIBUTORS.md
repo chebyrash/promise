@@ -13,3 +13,5 @@
 * **[Ely De La Cruz](https://github.com/elycruz)**
 
 * **[Michael Orenstein](https://github.com/Mike-Dax)**
+
+* **[Aleksey Myasnikov](https://github.com/asmyasnikov)**
