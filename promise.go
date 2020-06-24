@@ -1,7 +1,7 @@
 package promise
 
 import (
-	"errors"
+	"fmt"
 	"sync"
 )
 
@@ -100,9 +100,16 @@ func (promise *Promise) reject(err error) {
 }
 
 func (promise *Promise) handlePanic() {
-	var r = recover()
-	if r != nil {
-		promise.reject(errors.New(r.(string)))
+	e := recover()
+	if e != nil {
+		switch err := e.(type) {
+		case nil:
+			promise.reject(fmt.Errorf("panic recovery with nil error"))
+		case error:
+			promise.reject(fmt.Errorf("panic recovery with error: %s", err.Error()))
+		default:
+			promise.reject(fmt.Errorf("panic recovery with unknown error: %s", fmt.Sprint(err)))
+		}
 	}
 }
 
