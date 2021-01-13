@@ -12,7 +12,7 @@ func main() {
 	var p2 = promise.Reject(errors.New("something wrong"))
 
 	results, _ := promise.AllSettled(p1, p2).Await()
-	for _, result := range results.([]interface{}) {
+	for _, result := range results.([]promise.Any) {
 		switch value := result.(type) {
 		case error:
 			fmt.Printf("Bad error occurred: %s\n", value.Error())

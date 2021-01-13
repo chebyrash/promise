@@ -8,7 +8,7 @@ import (
 )
 
 func TestNew(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
+	var promise = New(func(resolve func(Any), reject func(error)) {
 		resolve(nil)
 	})
 
@@ -18,15 +18,15 @@ func TestNew(t *testing.T) {
 }
 
 func TestPromise_Then(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
+	var promise = New(func(resolve func(Any), reject func(error)) {
 		resolve(1 + 1)
 	})
 
 	promise.
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			return data.(int) + 1
 		}).
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			if data.(int) != 3 {
 				t.Error("Result doesn't propagate")
 			}
@@ -41,14 +41,14 @@ func TestPromise_Then(t *testing.T) {
 }
 
 func TestPromise_ThenNested(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
-		resolve(New(func(res func(interface{}), rej func(error)) {
+	var promise = New(func(resolve func(Any), reject func(error)) {
+		resolve(New(func(res func(Any), rej func(error)) {
 			res("Hello, World")
 		}))
 	})
 
 	promise.
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			if data.(string) != "Hello, World" {
 				t.Error("Resolved promise doesn't flatten")
 			}
@@ -63,12 +63,12 @@ func TestPromise_ThenNested(t *testing.T) {
 }
 
 func TestPromise_Catch(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
+	var promise = New(func(resolve func(Any), reject func(error)) {
 		reject(errors.New("very serious err"))
 	})
 
 	promise.
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			t.Error("Then 1 triggered in .Catch test")
 			return nil
 		}).
@@ -84,7 +84,7 @@ func TestPromise_Catch(t *testing.T) {
 			}
 			return err
 		}).
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			t.Error("Then 2 triggered in .Catch test")
 			return nil
 		})
@@ -93,14 +93,14 @@ func TestPromise_Catch(t *testing.T) {
 }
 
 func TestPromise_CatchNested(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
-		resolve(New(func(res func(interface{}), rej func(error)) {
+	var promise = New(func(resolve func(Any), reject func(error)) {
+		resolve(New(func(res func(Any), rej func(error)) {
 			rej(errors.New("nested fail"))
 		}))
 	})
 
 	promise.
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			t.Error("Then triggered in .Catch test")
 			return nil
 		}).
@@ -115,12 +115,12 @@ func TestPromise_CatchNested(t *testing.T) {
 }
 
 func TestPromise_Panic(t *testing.T) {
-	var promise = New(func(resolve func(interface{}), reject func(error)) {
+	var promise = New(func(resolve func(Any), reject func(error)) {
 		panic("much panic")
 	})
 
 	promise.
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			t.Error("Then triggered in .Catch test")
 			return nil
 		})
@@ -132,11 +132,11 @@ func TestPromise_Await(t *testing.T) {
 	var promises = make([]*Promise, 10)
 
 	for x := 0; x < 10; x++ {
-		var promise = New(func(resolve func(interface{}), reject func(error)) {
+		var promise = New(func(resolve func(Any), reject func(error)) {
 			resolve(time.Now())
 		})
 
-		promise.Then(func(data interface{}) interface{} {
+		promise.Then(func(data Any) Any {
 			return data.(time.Time).Add(time.Second).Nanosecond()
 		})
 
@@ -167,10 +167,10 @@ func TestPromise_Await(t *testing.T) {
 
 func TestPromise_Resolve(t *testing.T) {
 	var promise = Resolve(123).
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			return data.(int) + 1
 		}).
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			t.Helper()
 			if data.(int) != 124 {
 				t.Errorf("Then resolved with unexpected value: %v", data.(int))
@@ -183,7 +183,7 @@ func TestPromise_Resolve(t *testing.T) {
 
 func TestPromise_Reject(t *testing.T) {
 	var promise = Reject(errors.New("rejected")).
-		Then(func(data interface{}) interface{} {
+		Then(func(data Any) Any {
 			return data.(int) + 1
 		}).
 		Catch(func(err error) error {
@@ -225,7 +225,7 @@ func TestPromise_All2(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	} else {
-		for index, res := range result.([]interface{}) {
+		for index, res := range result.([]Any) {
 			s := fmt.Sprintf("All Good %d", index)
 			if res == nil {
 				t.Error("Result is nil!")
@@ -248,7 +248,7 @@ func TestPromise_All3(t *testing.T) {
 		return
 	}
 
-	res := result.([]interface{})
+	res := result.([]Any)
 	if len(res) != 0 {
 		t.Error("Wrong result on nil slice")
 		return

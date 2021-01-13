@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	var p = promise.New(func(resolve func(interface{}), reject func(error)) {
+	var p = promise.New(func(resolve func(promise.Any), reject func(error)) {
 		// Do something asynchronously.
 		const sum = 2 + 2
 
@@ -30,7 +30,7 @@ func main() {
 	}).
 		// You may continue working with the result of
 		// a previous async operation.
-		Then(func(data interface{}) interface{} {
+		Then(func(data promise.Any) promise.Any {
 			fmt.Println("The result is:", data)
 			return data.(int) + 1
 		}).
@@ -38,12 +38,12 @@ func main() {
 		// Handlers can be added even after the success or failure of the asynchronous operation.
 		// Multiple handlers may be added by calling .Then or .Catch several times,
 		// to be executed independently in insertion order.
-		Then(func(data interface{}) interface{} {
+		Then(func(data promise.Any) promise.Any {
 			fmt.Println("The new result is:", data)
 			return nil
 		}).
-		Catch(func(error error) error {
-			fmt.Println("Error during execution:", error.Error())
+		Catch(func(err error) error {
+			fmt.Println("Error during execution:", err.Error())
 			return nil
 		})
 

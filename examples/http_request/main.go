@@ -10,7 +10,7 @@ import (
 )
 
 func parseJSON(data []byte) *promise.Promise {
-	return promise.New(func(resolve func(interface{}), reject func(error)) {
+	return promise.New(func(resolve func(promise.Any), reject func(error)) {
 		var body = make(map[string]string)
 
 		err := json.Unmarshal(data, &body)
@@ -23,7 +23,7 @@ func parseJSON(data []byte) *promise.Promise {
 }
 
 func main() {
-	var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
+	var requestPromise = promise.New(func(resolve func(promise.Any), reject func(error)) {
 		resp, err := http.Get("https://httpbin.org/ip")
 		defer resp.Body.Close()
 		if err != nil {
@@ -41,7 +41,7 @@ func main() {
 
 	// Parse JSON body in async manner
 	parsed, err := requestPromise.
-		Then(func(data interface{}) interface{} {
+		Then(func(data promise.Any) promise.Any {
 			// This can be a promise, it will automatically flatten
 			return parseJSON(data.([]byte))
 		}).Await()

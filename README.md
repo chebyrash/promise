@@ -1,7 +1,7 @@
 # PROMISE
 [![Go Report Card](https://goreportcard.com/badge/github.com/chebyrash/promise)](https://goreportcard.com/report/github.com/chebyrash/promise)
 [![Build Status](https://travis-ci.org/chebyrash/promise.svg?branch=master)](https://travis-ci.org/chebyrash/promise)
-[![](https://godoc.org/github.com/chebyrash/promise?status.svg)](https://pkg.go.dev/github.com/chebyrash/promise?tab=doc)
+[![Go Reference](https://pkg.go.dev/badge/github.com/chebyrash/promise.svg)](https://pkg.go.dev/github.com/chebyrash/promise)
 
 ## About
 Promises library for Golang. Inspired by [JS Promises](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
@@ -14,7 +14,12 @@ Supports:
 
 • Promise cancellation
 
-Note that the library **will be updated** as soon as generics arrive in Go 2.0 to allow for greater type safety, less boilerplate and better performance
+<br>
+
+### The library **will be updated** as soon as generics arrive in Go.
+### Currently we use **promise.Any** as a substitute for **interface{}** 
+
+<br>
 
 ## Install
 
@@ -22,7 +27,7 @@ Note that the library **will be updated** as soon as generics arrive in Go 2.0 t
 
 ## Quick Start
 ```go
-var p = promise.New(func(resolve func(interface{}), reject func(error)) {
+var p = promise.New(func(resolve func(promise.Any), reject func(error)) {
   // Do something asynchronously.
   const sum = 2 + 2
 
@@ -44,7 +49,7 @@ var p = promise.New(func(resolve func(interface{}), reject func(error)) {
 }).
   // You may continue working with the result of
   // a previous async operation.
-  Then(func(data interface{}) interface{} {
+  Then(func(data promise.Any) promise.Any {
     fmt.Println("The result is:", data)
     return data.(int) + 1
   }).
@@ -52,12 +57,12 @@ var p = promise.New(func(resolve func(interface{}), reject func(error)) {
   // Handlers can be added even after the success or failure of the asynchronous operation.
   // Multiple handlers may be added by calling .Then or .Catch several times,
   // to be executed independently in insertion order.
-  Then(func(data interface{}) interface{} {
+  Then(func(data promise.Any) promise.Any {
     fmt.Println("The new result is:", data)
     return nil
   }).
-  Catch(func(error error) error {
-    fmt.Println("Error during execution:", error.Error())
+  Catch(func(err error) error {
+    fmt.Println("Error during execution:", err.Error())
     return nil
   })
 
@@ -94,7 +99,7 @@ var p1 = promise.Resolve(123)
 var p2 = promise.Reject(errors.New("something wrong"))
 
 results, _ := promise.AllSettled(p1, p2).Await()
-for _, result := range results.([]interface{}) {
+for _, result := range results.([]promise.Any) {
     switch value := result.(type) {
     case error:
         fmt.Printf("Bad error occurred: %s", value.Error())
@@ -152,7 +157,7 @@ fmt.Println(err)
 
 ### [HTTP Request](https://github.com/chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
-var requestPromise = promise.New(func(resolve func(interface{}), reject func(error)) {
+var requestPromise = promise.New(func(resolve func(promise.Any), reject func(error)) {
   resp, err := http.Get("https://httpbin.org/ip")
   defer resp.Body.Close()
   if err != nil {
@@ -170,7 +175,7 @@ var requestPromise = promise.New(func(resolve func(interface{}), reject func(err
 
 // Parse JSON body in async manner
 parsed, err := requestPromise.
-  Then(func(data interface{}) interface{} {
+  Then(func(data promise.Any) promise.Any {
     // This can be a promise, it will automatically flatten
     return parseJSON(data.([]byte))
   }).Await()
@@ -205,7 +210,7 @@ func main() {
 
 	// Results calculated asynchronously
 	results, _ := promise.All(factorial1, factorial2, factorial3).Await()
-	values := results.([]interface{})
+	values := results.([]promise.Any)
 
 	fmt.Println("Result of 5! is", values[0])
 	fmt.Println("Result of 10! is", values[1])
@@ -216,15 +221,15 @@ func main() {
 ### [Chaining](https://github.com/Chebyrash/promise/blob/master/examples/http_request/main.go)
 ```go
 var p = promise.Resolve(nil).
-  Then(func(data interface{}) interface{} {
+  Then(func(data promise.Any) promise.Any {
     fmt.Println("I will execute first")
     return nil
   }).
-  Then(func(data interface{}) interface{} {
+  Then(func(data promise.Any) promise.Any {
     fmt.Println("And I will execute second!")
     return nil
   }).
-  Then(func(data interface{}) interface{} {
+  Then(func(data promise.Any) promise.Any {
     fmt.Println("Oh I'm last :(")
     return nil
   })
