@@ -14,7 +14,7 @@ Supports:
 
 • Promise cancellation
 
-##### You can use `promise.Any` as a substitute for `interface{}` until generics arrive in Go and the library is updated.
+#### You can use `promise.Any` as a substitute for `interface{}` until generics arrive in Go and the library is updated.
 
 ## Install
 
