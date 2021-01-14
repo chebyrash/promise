@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-// Any interface is a substitute for interface{}
+// Any is a substitute for interface{}
 type Any = interface{}
 
 // A Promise is a proxy for a value not necessarily known when
