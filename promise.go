@@ -84,27 +84,37 @@ func (p *Promise[T]) Await() (T, error) {
 
 // Then allows to chain promises.
 // Use it to add a fulfillment handler to the resolved promise.
-func Then[A, B any](promise *Promise[A], fulfillment func(data A) B) *Promise[B] {
+func Then[A, B any](promise *Promise[A], fulfillment func(data A) (B, error)) *Promise[B] {
 	return New(func(resolve func(B), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
 			reject(err)
-			return
+		} else {
+			result, err := fulfillment(result)
+			if err != nil {
+				reject(err)
+			} else {
+				resolve(result)
+			}
 		}
-		resolve(fulfillment(result))
 	})
 }
 
 // Catch allows to chain promises.
 // Use it to add an error handler to the rejected promise.
-func Catch[T any](promise *Promise[T], rejection func(err error) error) *Promise[T] {
-	return New(func(resolve func(T), reject func(error)) {
+func Catch[A any](promise *Promise[A], rejection func(err error) (A, error)) *Promise[A] {
+	return New(func(resolve func(A), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
-			reject(rejection(err))
-			return
+			result, err = rejection(err)
+			if err != nil {
+				reject(err)
+			} else {
+				resolve(result)
+			}
+		} else {
+			resolve(result)
 		}
-		resolve(result)
 	})
 }
 
@@ -145,13 +155,14 @@ func All[T any](promises ...*Promise[T]) *Promise[[]T] {
 
 		for idx, p := range promises {
 			idx := idx // https://golang.org/doc/faq#closures_and_goroutines
-			_ = Then(p, func(data T) T {
+			_ = Then(p, func(data T) (T, error) {
 				valsChan <- pair[T, int]{left: data, right: idx}
-				return data
+				return data, nil
 			})
-			_ = Catch(p, func(err error) error {
+			_ = Catch(p, func(err error) (T, error) {
 				errsChan <- err
-				return err
+				var a T
+				return a, err
 			})
 		}
 
@@ -182,13 +193,14 @@ func Race[T any](promises ...*Promise[T]) *Promise[T] {
 		errsChan := make(chan error, 1)
 
 		for _, p := range promises {
-			_ = Then(p, func(data T) T {
+			_ = Then(p, func(data T) (T, error) {
 				valsChan <- data
-				return data
+				return data, nil
 			})
-			_ = Catch(p, func(err error) error {
+			_ = Catch(p, func(err error) (T, error) {
 				errsChan <- err
-				return err
+				var a T
+				return a, err
 			})
 		}
 

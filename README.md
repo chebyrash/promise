@@ -5,7 +5,7 @@
 
 ## Install
 
-    $ go get -u github.com/chebyrash/promise
+    $ go get -u github.com/elprans/go-promise
 
 ## Introduction
 

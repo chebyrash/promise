@@ -21,8 +21,8 @@ func TestPromise_Then(t *testing.T) {
 	p1 := New(func(resolve func(string), reject func(error)) {
 		resolve("Hello, ")
 	})
-	p2 := Then(p1, func(data string) string {
-		return data + "world!"
+	p2 := Then(p1, func(data string) (string, error) {
+		return data + "world!", nil
 	})
 
 	val, err := p1.Await()
@@ -38,9 +38,9 @@ func TestPromise_Catch(t *testing.T) {
 	p1 := New(func(resolve func(any), reject func(error)) {
 		reject(expectedError)
 	})
-	p2 := Then(p1, func(data any) any {
+	p2 := Then(p1, func(data any) (any, error) {
 		t.Fatal("should not execute Then")
-		return nil
+		return nil, nil
 	})
 
 	val, err := p1.Await()
