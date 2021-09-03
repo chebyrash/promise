@@ -64,6 +64,8 @@ func New(executor func(resolve func(Any), reject func(error))) *Promise {
 
 func (promise *Promise) resolve(resolution Any) {
 	promise.mutex.Lock()
+	defer promise.wg.Done()
+	defer promise.mutex.Unlock()
 
 	if !promise.pending {
 		promise.mutex.Unlock()
@@ -85,11 +87,11 @@ func (promise *Promise) resolve(resolution Any) {
 	promise.pending = false
 
 	promise.wg.Done()
-	promise.mutex.Unlock()
 }
 
 func (promise *Promise) reject(err error) {
 	promise.mutex.Lock()
+	defer promise.wg.Done()
 	defer promise.mutex.Unlock()
 
 	if !promise.pending {
@@ -98,8 +100,6 @@ func (promise *Promise) reject(err error) {
 
 	promise.err = err
 	promise.pending = false
-
-	promise.wg.Done()
 }
 
 func (promise *Promise) handlePanic() {
