@@ -1,20 +1,11 @@
 # PROMISE
 [![Go Report Card](https://goreportcard.com/badge/github.com/chebyrash/promise)](https://goreportcard.com/report/github.com/chebyrash/promise)
-[![Build Status](https://travis-ci.org/chebyrash/promise.svg?branch=master)](https://travis-ci.org/chebyrash/promise)
+[![Build Status](https://github.com/chebyrash/promise/actions/workflows/test.yml/badge.svg)](https://github.com/chebyrash/promise/actions)
 [![Go Reference](https://pkg.go.dev/badge/github.com/chebyrash/promise.svg)](https://pkg.go.dev/github.com/chebyrash/promise)
 
 ## About
-Promises library for Golang. Inspired by [JS Promises](https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Promise)
 
-Supports:
-
-• Automatic panic recovery
-
-• Nested promise flattening
-
-• Promise cancellation
-
-#### You can use `promise.Any` as a substitute for `interface{}` until generics arrive in Go and the library is updated.
+Promises library for Go.
 
 ## Install
 

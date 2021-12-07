@@ -5,121 +5,84 @@ import (
 	"sync"
 )
 
-// Any is a substitute for interface{}
-type Any = interface{}
-
 // A Promise is a proxy for a value not necessarily known when
 // the promise is created. It allows you to associate handlers
 // with an asynchronous action's eventual success value or failure reason.
 // This lets asynchronous methods return values like synchronous methods:
 // instead of immediately returning the final value, the asynchronous method
 // returns a promise to supply the value at some point in the future.
-type Promise struct {
+type Promise[T any] struct {
+	executor func(resolve func(T), reject func(error))
+	result   T
+	err      error
+
 	pending bool
-
-	// A function that is passed with the arguments resolve and reject.
-	// The executor function is executed immediately by the Promise implementation,
-	// passing resolve and reject functions (the executor is called
-	// before the Promise constructor even returns the created object).
-	// The resolve and reject functions, when called, resolve or reject
-	// the promise, respectively. The executor normally initiates some
-	// asynchronous work, and then, once that completes, either calls the
-	// resolve function to resolve the promise or else rejects it if
-	// an error or panic occurred.
-	executor func(resolve func(Any), reject func(error))
-
-	// Stores the result passed to resolve()
-	result Any
-
-	// Stores the error passed to reject()
-	err error
-
-	// Mutex protects against data race conditions.
-	mutex sync.Mutex
-
-	// WaitGroup allows to block until all callbacks are executed.
-	wg sync.WaitGroup
+	mutex   sync.Mutex
+	wg      sync.WaitGroup
 }
 
-// New instantiates and returns a pointer to a new Promise.
-func New(executor func(resolve func(Any), reject func(error))) *Promise {
-	var promise = &Promise{
-		pending:  true,
+// New creates a new Promise
+func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] {
+	if executor == nil {
+		panic("executor cannot be nil")
+	}
+	
+	p := &Promise[T]{
 		executor: executor,
-		result:   nil,
-		err:      nil,
-		mutex:    sync.Mutex{},
-		wg:       sync.WaitGroup{},
+		pending:  true,
 	}
 
-	promise.wg.Add(1)
+	p.wg.Add(1)
 
 	go func() {
-		defer promise.handlePanic()
-		promise.executor(promise.resolve, promise.reject)
+		defer p.handlePanic()
+		p.executor(p.resolve, p.reject)
 	}()
 
-	return promise
+	return p
 }
 
-func (promise *Promise) resolve(resolution Any) {
-	promise.mutex.Lock()
+func (p *Promise[T]) resolve(resolution T) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
-	if !promise.pending {
-		promise.mutex.Unlock()
+	if !p.pending {
 		return
 	}
 
-	switch result := resolution.(type) {
-	case *Promise:
-		flattenedResult, err := result.Await()
-		if err != nil {
-			promise.mutex.Unlock()
-			promise.reject(err)
-			return
-		}
-		promise.result = flattenedResult
-	default:
-		promise.result = result
-	}
-	promise.pending = false
+	p.result = resolution
+	p.pending = false
 
-	promise.wg.Done()
-	promise.mutex.Unlock()
+	p.wg.Done()
 }
 
-func (promise *Promise) reject(err error) {
-	promise.mutex.Lock()
-	defer promise.mutex.Unlock()
+func (p *Promise[T]) reject(err error) {
+	p.mutex.Lock()
+	defer p.mutex.Unlock()
 
-	if !promise.pending {
+	if !p.pending {
 		return
 	}
 
-	promise.err = err
-	promise.pending = false
+	p.err = err
+	p.pending = false
 
-	promise.wg.Done()
+	p.wg.Done()
 }
 
-func (promise *Promise) handlePanic() {
-	e := recover()
-	if e != nil {
-		switch err := e.(type) {
-		case nil:
-			promise.reject(fmt.Errorf("panic recovery with nil error"))
-		case error:
-			promise.reject(fmt.Errorf("panic recovery with error: %s", err.Error()))
-		default:
-			promise.reject(fmt.Errorf("panic recovery with unknown error: %s", fmt.Sprint(err)))
-		}
+func (p *Promise[T]) handlePanic() {
+	err := recover()
+	if validErr, ok := err.(error); ok {
+		p.reject(fmt.Errorf("panic recovery: %w", validErr))
+	} else {
+		p.reject(fmt.Errorf("panic recovery: %+v", err))
 	}
 }
 
-// Then appends fulfillment and rejection handlers to the promise,
+// Then appends fulfillment handler to the promise,
 // and returns a new promise resolving to the return value of the called handler.
-func (promise *Promise) Then(fulfillment func(data Any) Any) *Promise {
-	return New(func(resolve func(Any), reject func(error)) {
+func Then[A, B any](promise *Promise[A], fulfillment func(data A) B) *Promise[B] {
+	return New[B](func(resolve func(B), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
 			reject(err)
@@ -129,10 +92,10 @@ func (promise *Promise) Then(fulfillment func(data Any) Any) *Promise {
 	})
 }
 
-// Catch Appends a rejection handler to the promise,
+// Catch appends a rejection handler to the promise,
 // and returns a new promise resolving to the return value of the handler.
-func (promise *Promise) Catch(rejection func(err error) error) *Promise {
-	return New(func(resolve func(Any), reject func(error)) {
+func Catch[T any](promise *Promise[T], rejection func(err error) error) *Promise[T] {
+	return New[T](func(resolve func(T), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
 			reject(rejection(err))
@@ -142,136 +105,8 @@ func (promise *Promise) Catch(rejection func(err error) error) *Promise {
 	})
 }
 
-// Await is a blocking function that waits for all callbacks to be executed.
-// Returns value and error.
-// Call on an already resolved Promise to get its result and error
-func (promise *Promise) Await() (Any, error) {
+// Await is a blocking function that waits for the promise to resolve
+func (promise *Promise[T]) Await() (T, error) {
 	promise.wg.Wait()
 	return promise.result, promise.err
-}
-
-type resolutionHelper struct {
-	index int
-	data  Any
-}
-
-// All waits for all promises to be resolved, or for any to be rejected.
-// If the returned promise resolves, it is resolved with an aggregating array of the values
-// from the resolved promises in the same order as defined in the iterable of multiple promises.
-// If it rejects, it is rejected with the reason from the first promise in the iterable that was rejected.
-func All(promises ...*Promise) *Promise {
-	psLen := len(promises)
-	if psLen == 0 {
-		return Resolve(make([]Any, 0))
-	}
-
-	return New(func(resolve func(Any), reject func(error)) {
-		resolutionsChan := make(chan resolutionHelper, psLen)
-		errorChan := make(chan error, psLen)
-
-		for index, promise := range promises {
-			func(i int) {
-				promise.Then(func(data Any) Any {
-					resolutionsChan <- resolutionHelper{i, data}
-					return data
-				}).Catch(func(err error) error {
-					errorChan <- err
-					return err
-				})
-			}(index)
-		}
-
-		resolutions := make([]Any, psLen)
-		for x := 0; x < psLen; x++ {
-			select {
-			case resolution := <-resolutionsChan:
-				resolutions[resolution.index] = resolution.data
-
-			case err := <-errorChan:
-				reject(err)
-				return
-			}
-		}
-		resolve(resolutions)
-	})
-}
-
-// Race waits until any of the promises is resolved or rejected.
-// If the returned promise resolves, it is resolved with the value of the first promise in the iterable
-// that resolved. If it rejects, it is rejected with the reason from the first promise that was rejected.
-func Race(promises ...*Promise) *Promise {
-	psLen := len(promises)
-	if psLen == 0 {
-		return Resolve(nil)
-	}
-
-	return New(func(resolve func(Any), reject func(error)) {
-		resolutionsChan := make(chan Any, psLen)
-		errorChan := make(chan error, psLen)
-
-		for _, promise := range promises {
-			promise.Then(func(data Any) Any {
-				resolutionsChan <- data
-				return data
-			}).Catch(func(err error) error {
-				errorChan <- err
-				return err
-			})
-		}
-
-		select {
-		case resolution := <-resolutionsChan:
-			resolve(resolution)
-
-		case err := <-errorChan:
-			reject(err)
-		}
-	})
-}
-
-// AllSettled waits until all promises have settled (each may resolve, or reject).
-// Returns a promise that resolves after all of the given promises have either resolved or rejected,
-// with an array of objects that each describe the outcome of each promise.
-func AllSettled(promises ...*Promise) *Promise {
-	psLen := len(promises)
-	if psLen == 0 {
-		return Resolve(nil)
-	}
-
-	return New(func(resolve func(Any), reject func(error)) {
-		resolutionsChan := make(chan resolutionHelper, psLen)
-
-		for index, promise := range promises {
-			func(i int) {
-				promise.Then(func(data Any) Any {
-					resolutionsChan <- resolutionHelper{i, data}
-					return data
-				}).Catch(func(err error) error {
-					resolutionsChan <- resolutionHelper{i, err}
-					return err
-				})
-			}(index)
-		}
-
-		resolutions := make([]Any, psLen)
-		for x := 0; x < psLen; x++ {
-			resolution := <-resolutionsChan
-			resolutions[resolution.index] = resolution.data
-		}
-		resolve(resolutions)
-	})
-}
-
-// Resolve returns a Promise that has been resolved with a given value.
-func Resolve(resolution Any) *Promise {
-	return New(func(resolve func(Any), reject func(error)) {
-		resolve(resolution)
-	})
-}
-
-// Reject returns a Promise that has been rejected with a given error.
-func Reject(err error) *Promise {
-	return New(func(resolve func(Any), reject func(error)) {
-		reject(err)
-	})
 }
