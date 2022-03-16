@@ -3,14 +3,11 @@ package promise
 import (
 	"fmt"
 	"sync"
+
+	"github.com/pkg/errors"
 )
 
-// A Promise is a proxy for a value not necessarily known when
-// the promise is created. It allows you to associate handlers
-// with an asynchronous action's eventual success value or failure reason.
-// This lets asynchronous methods return values like synchronous methods:
-// instead of immediately returning the final value, the asynchronous method
-// returns a promise to supply the value at some point in the future.
+// Promise represents the eventual completion (or failure) of an asynchronous operation and its resulting value.
 type Promise[T any] struct {
 	executor func(resolve func(T), reject func(error))
 	result   T
@@ -26,7 +23,7 @@ func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] 
 	if executor == nil {
 		panic("executor cannot be nil")
 	}
-	
+
 	p := &Promise[T]{
 		executor: executor,
 		pending:  true,
@@ -79,10 +76,16 @@ func (p *Promise[T]) handlePanic() {
 	}
 }
 
-// Then appends fulfillment handler to the promise,
-// and returns a new promise resolving to the return value of the called handler.
+// Await blocks until the promise is resolved or rejected.
+func (p *Promise[T]) Await() (T, error) {
+	p.wg.Wait()
+	return p.result, p.err
+}
+
+// Then allows to chain promises.
+// Use it to add a fulfillment handler to the resolved promise.
 func Then[A, B any](promise *Promise[A], fulfillment func(data A) B) *Promise[B] {
-	return New[B](func(resolve func(B), reject func(error)) {
+	return New(func(resolve func(B), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
 			reject(err)
@@ -92,10 +95,10 @@ func Then[A, B any](promise *Promise[A], fulfillment func(data A) B) *Promise[B]
 	})
 }
 
-// Catch appends a rejection handler to the promise,
-// and returns a new promise resolving to the return value of the handler.
+// Catch allows to chain promises.
+// Use it to add an error handler to the rejected promise.
 func Catch[T any](promise *Promise[T], rejection func(err error) error) *Promise[T] {
-	return New[T](func(resolve func(T), reject func(error)) {
+	return New(func(resolve func(T), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
 			reject(rejection(err))
@@ -105,8 +108,123 @@ func Catch[T any](promise *Promise[T], rejection func(err error) error) *Promise
 	})
 }
 
-// Await is a blocking function that waits for the promise to resolve
-func (promise *Promise[T]) Await() (T, error) {
-	promise.wg.Wait()
-	return promise.result, promise.err
+/*
+	Utilities
+*/
+
+type pair[L, R any] struct {
+	left  L
+	right R
+}
+
+// Resolve returns a Promise that has been resolved with a given value.
+func Resolve[T any](resolution T) *Promise[T] {
+	return New(func(resolve func(T), reject func(error)) {
+		resolve(resolution)
+	})
+}
+
+// Reject returns a Promise that has been rejected with a given error.
+func Reject[T any](err error) *Promise[T] {
+	return New(func(resolve func(T), reject func(error)) {
+		reject(err)
+	})
+}
+
+// All returns a Promise that will resolve when all of the input's promises have resolved.
+// It rejects immediately upon any of the input promises rejecting.
+// If the input is empty, All will return nil.
+func All[T any](promises ...*Promise[T]) *Promise[[]T] {
+	if len(promises) == 0 {
+		return nil
+	}
+
+	return New(func(resolve func([]T), reject func(error)) {
+		valsChan := make(chan pair[T, int], len(promises))
+		errsChan := make(chan error, 1)
+
+		for idx, p := range promises {
+			idx := idx // https://golang.org/doc/faq#closures_and_goroutines
+			_ = Then(p, func(data T) T {
+				valsChan <- pair[T, int]{left: data, right: idx}
+				return data
+			})
+			_ = Catch(p, func(err error) error {
+				errsChan <- err
+				return err
+			})
+		}
+
+		resolutions := make([]T, len(promises))
+		for idx := 0; idx < len(promises); idx++ {
+			select {
+			case val := <-valsChan:
+				resolutions[val.right] = val.left
+			case err := <-errsChan:
+				reject(err)
+				return
+			}
+		}
+		resolve(resolutions)
+	})
+}
+
+// Race returns a Promise that fulfills or rejects as soon as one of the input's promises fulfills or rejects,
+// with the value or error from that promise.
+// If the input is empty, Race will return nil.
+func Race[T any](promises ...*Promise[T]) *Promise[T] {
+	if len(promises) == 0 {
+		return nil
+	}
+
+	return New(func(resolve func(T), reject func(error)) {
+		valsChan := make(chan T, 1)
+		errsChan := make(chan error, 1)
+
+		for _, p := range promises {
+			_ = Then(p, func(data T) T {
+				valsChan <- data
+				return data
+			})
+			_ = Catch(p, func(err error) error {
+				errsChan <- err
+				return err
+			})
+		}
+
+		select {
+		case val := <-valsChan:
+			resolve(val)
+		case err := <-errsChan:
+			reject(err)
+		}
+	})
+}
+
+// Any returns a Promise that resolves as soon as any of the input's promises fulfills, with the value of the fulfilled promise.
+// If all of the given promises are rejected, then the returned promise is rejected with a combination of all errors.
+// If the input is empty, Race will return nil.
+func Any[T any](promises ...*Promise[T]) *Promise[T] {
+	if len(promises) == 0 {
+		return nil
+	}
+
+	return New(func(resolve func(T), reject func(error)) {
+		var errCombo error
+		for _, p := range promises {
+			val, err := p.Await()
+			if err == nil {
+				resolve(val)
+				return
+			}
+
+			if errCombo == nil {
+				errCombo = err
+				continue
+			}
+
+			errCombo = errors.Wrap(err, errCombo.Error())
+		}
+		reject(errCombo)
+	})
 }
