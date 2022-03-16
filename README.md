@@ -7,6 +7,12 @@
 
     $ go get -u github.com/chebyrash/promise
 
+## Introduction
+
+`promise` allows you to write async code in sync fashion.
+
+Supports **generics** and **automatic panic recovery**
+
 ## Usage Example
 ```go
 package main
