@@ -9,9 +9,9 @@
 
 ## Introduction
 
-`promise` allows you to write async code in sync fashion.
+`promise` allows you to write async code in sync fashion
 
-Supports **generics** and **automatic panic recovery**
+Supports **1.18 generics** and **automatic panic recovery**
 
 ## Usage Example
 ```go
