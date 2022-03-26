@@ -9,9 +9,8 @@ import (
 
 // Promise represents the eventual completion (or failure) of an asynchronous operation and its resulting value.
 type Promise[T any] struct {
-	executor func(resolve func(T), reject func(error))
-	result   T
-	err      error
+	result T
+	err    error
 
 	pending bool
 	mutex   sync.Mutex
@@ -25,15 +24,16 @@ func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] 
 	}
 
 	p := &Promise[T]{
-		executor: executor,
-		pending:  true,
+		pending: true,
+		mutex:   sync.Mutex{},
+		wg:      sync.WaitGroup{},
 	}
 
 	p.wg.Add(1)
 
 	go func() {
 		defer p.handlePanic()
-		p.executor(p.resolve, p.reject)
+		executor(p.resolve, p.reject)
 	}()
 
 	return p
