@@ -13,8 +13,8 @@ type Promise[T any] struct {
 	err    error
 
 	pending bool
-	mutex   sync.Mutex
-	wg      sync.WaitGroup
+	mutex   *sync.Mutex
+	wg      *sync.WaitGroup
 }
 
 // New creates a new Promise
@@ -25,8 +25,8 @@ func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] 
 
 	p := &Promise[T]{
 		pending: true,
-		mutex:   sync.Mutex{},
-		wg:      sync.WaitGroup{},
+		mutex:   &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
 	}
 
 	p.wg.Add(1)
@@ -83,15 +83,15 @@ func (p *Promise[T]) Await() (T, error) {
 }
 
 // Then allows to chain promises.
-// Use it to add a fulfillment handler to the resolved promise.
-func Then[A, B any](promise *Promise[A], fulfillment func(data A) B) *Promise[B] {
-	return New(func(resolve func(B), reject func(error)) {
+// Use it to add a handler to the resolved promise.
+func Then[A, B any](promise *Promise[A], resolveA func(data A) B) *Promise[B] {
+	return New(func(resolveB func(B), reject func(error)) {
 		result, err := promise.Await()
 		if err != nil {
 			reject(err)
 			return
 		}
-		resolve(fulfillment(result))
+		resolveB(resolveA(result))
 	})
 }
 
@@ -109,44 +109,50 @@ func Catch[T any](promise *Promise[T], rejection func(err error) error) *Promise
 }
 
 /*
-	Utilities
+	Helpers
 */
 
-type pair[L, R any] struct {
-	left  L
-	right R
+type tuple[T1, T2 any] struct {
+	_1 T1
+	_2 T2
 }
 
 // Resolve returns a Promise that has been resolved with a given value.
 func Resolve[T any](resolution T) *Promise[T] {
-	return New(func(resolve func(T), reject func(error)) {
-		resolve(resolution)
-	})
+	return &Promise[T]{
+		result:  resolution,
+		pending: false,
+		mutex:   &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
+	}
 }
 
 // Reject returns a Promise that has been rejected with a given error.
 func Reject[T any](err error) *Promise[T] {
-	return New(func(resolve func(T), reject func(error)) {
-		reject(err)
-	})
+	return &Promise[T]{
+		err:     err,
+		pending: false,
+		mutex:   &sync.Mutex{},
+		wg:      &sync.WaitGroup{},
+	}
 }
 
-// All returns a Promise that will resolve when all of the input's promises have resolved.
-// It rejects immediately upon any of the input promises rejecting.
-// If the input is empty, All will return nil.
+// All resolves when all of the input's promises have resolved.
+// All rejects immediately upon any of the input promises rejecting.
+// All returns nil if the input is empty.
 func All[T any](promises ...*Promise[T]) *Promise[[]T] {
 	if len(promises) == 0 {
 		return nil
 	}
 
 	return New(func(resolve func([]T), reject func(error)) {
-		valsChan := make(chan pair[T, int], len(promises))
+		valsChan := make(chan tuple[T, int], len(promises))
 		errsChan := make(chan error, 1)
 
 		for idx, p := range promises {
 			idx := idx // https://golang.org/doc/faq#closures_and_goroutines
 			_ = Then(p, func(data T) T {
-				valsChan <- pair[T, int]{left: data, right: idx}
+				valsChan <- tuple[T, int]{_1: data, _2: idx}
 				return data
 			})
 			_ = Catch(p, func(err error) error {
@@ -159,7 +165,7 @@ func All[T any](promises ...*Promise[T]) *Promise[[]T] {
 		for idx := 0; idx < len(promises); idx++ {
 			select {
 			case val := <-valsChan:
-				resolutions[val.right] = val.left
+				resolutions[val._2] = val._1
 			case err := <-errsChan:
 				reject(err)
 				return
@@ -169,9 +175,8 @@ func All[T any](promises ...*Promise[T]) *Promise[[]T] {
 	})
 }
 
-// Race returns a Promise that fulfills or rejects as soon as one of the input's promises fulfills or rejects,
-// with the value or error from that promise.
-// If the input is empty, Race will return nil.
+// Race resolves or rejects as soon as one of the input's Promises resolve or reject, with the value or error of that Promise.
+// Race returns nil if the input is empty.
 func Race[T any](promises ...*Promise[T]) *Promise[T] {
 	if len(promises) == 0 {
 		return nil
@@ -201,28 +206,43 @@ func Race[T any](promises ...*Promise[T]) *Promise[T] {
 	})
 }
 
-// Any returns a Promise that resolves as soon as any of the input's promises fulfills, with the value of the fulfilled promise.
-// If all of the given promises are rejected, then the returned promise is rejected with a combination of all errors.
-// If the input is empty, Race will return nil.
+// Any resolves as soon as any of the input's Promises resolve, with the value of the resolved Promise.
+// Any rejects if all of the given Promises are rejected with a combination of all errors.
+// Any returns nil if the input is empty.
 func Any[T any](promises ...*Promise[T]) *Promise[T] {
 	if len(promises) == 0 {
 		return nil
 	}
 
 	return New(func(resolve func(T), reject func(error)) {
-		var errCombo error
-		for _, p := range promises {
-			val, err := p.Await()
-			if err == nil {
+		valsChan := make(chan T, 1)
+		errsChan := make(chan tuple[error, int], len(promises))
+
+		for idx, p := range promises {
+			idx := idx // https://golang.org/doc/faq#closures_and_goroutines
+			_ = Then(p, func(data T) T {
+				valsChan <- data
+				return data
+			})
+			_ = Catch(p, func(err error) error {
+				errsChan <- tuple[error, int]{_1: err, _2: idx}
+				return err
+			})
+		}
+
+		errs := make([]error, len(promises))
+		for idx := 0; idx < len(promises); idx++ {
+			select {
+			case val := <-valsChan:
 				resolve(val)
 				return
+			case err := <-errsChan:
+				errs[err._2] = err._1
 			}
+		}
 
-			if errCombo == nil {
-				errCombo = err
-				continue
-			}
-
+		errCombo := errs[0]
+		for _, err := range errs[1:] {
 			errCombo = errors.Wrap(err, errCombo.Error())
 		}
 		reject(errCombo)

@@ -209,7 +209,7 @@ func TestAny_Happy(t *testing.T) {
 		reject(expectedError)
 	})
 
-	p := Any(p1, p2, p3)
+	p := Any(p3, p2, p1)
 
 	val, err := p.Await()
 	require.NoError(t, err)
