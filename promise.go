@@ -9,12 +9,12 @@ import (
 
 // Promise represents the eventual completion (or failure) of an asynchronous operation and its resulting value.
 type Promise[T any] struct {
-	result T
-	err    error
-
-	pending bool
-	mutex   *sync.Mutex
-	wg      *sync.WaitGroup
+	result   T
+	err      error
+	executed bool
+	pending  bool
+	mutex    *sync.Mutex
+	wg       *sync.WaitGroup
 }
 
 // New creates a new Promise
@@ -33,13 +33,14 @@ func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] 
 
 	go func() {
 		defer p.handlePanic()
-		executor(p.resolve, p.reject)
+		executor(p.Resolve, p.Reject)
+		p.executed = true
 	}()
 
 	return p
 }
 
-func (p *Promise[T]) resolve(resolution T) {
+func (p *Promise[T]) Resolve(resolution T) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -53,7 +54,7 @@ func (p *Promise[T]) resolve(resolution T) {
 	p.wg.Done()
 }
 
-func (p *Promise[T]) reject(err error) {
+func (p *Promise[T]) Reject(err error) {
 	p.mutex.Lock()
 	defer p.mutex.Unlock()
 
@@ -70,9 +71,9 @@ func (p *Promise[T]) reject(err error) {
 func (p *Promise[T]) handlePanic() {
 	err := recover()
 	if validErr, ok := err.(error); ok {
-		p.reject(fmt.Errorf("panic recovery: %w", validErr))
-	} else {
-		p.reject(fmt.Errorf("panic recovery: %+v", err))
+		p.Reject(fmt.Errorf("panic recovery: %w", validErr))
+	} else if !p.executed {
+		p.Reject(fmt.Errorf("panic recovery: %+v", err))
 	}
 }
 
