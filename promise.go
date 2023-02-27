@@ -69,6 +69,9 @@ func (p *Promise[T]) reject(err error) {
 
 func (p *Promise[T]) handlePanic() {
 	err := recover()
+	if err == nil {
+		return
+	}
 	if validErr, ok := err.(error); ok {
 		p.reject(fmt.Errorf("panic recovery: %w", validErr))
 	} else {
