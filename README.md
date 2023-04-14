@@ -3,21 +3,25 @@
 [![Build Status](https://github.com/chebyrash/promise/actions/workflows/test.yml/badge.svg)](https://github.com/chebyrash/promise/actions)
 [![Go Reference](https://pkg.go.dev/badge/github.com/chebyrash/promise.svg)](https://pkg.go.dev/github.com/chebyrash/promise)
 
-## Install
-
-    $ go get -u github.com/chebyrash/promise
-
 ## Introduction
 
 `promise` allows you to write async code in sync fashion
 
-Supports **1.18 generics** and **automatic panic recovery**
+- First class [context.Context](https://blog.golang.org/context) support
+- Automatic panic recovery
+- [No dependencies](https://pkg.go.dev/chebyrash/promise?tab=imports)
+- Generics support
 
-## Usage Example
+## Install
+
+    $ go get github.com/chebyrash/promise
+
+## Usage
 ```go
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -34,15 +38,15 @@ func main() {
 		ip, err := fetchIP()
 		if err != nil {
 			reject(err)
-			return
+		} else {
+			resolve(ip)
 		}
-		resolve(ip)
 	})
 
-	factorial, _ := p1.Await()
+	factorial, _ := p1.Await(context.Background())
 	fmt.Println(factorial)
 
-	IP, _ := p2.Await()
+	IP, _ := p2.Await(context.Background())
 	fmt.Println(IP)
 }
 
