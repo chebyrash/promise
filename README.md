@@ -9,7 +9,7 @@
 
 - First class [context.Context](https://blog.golang.org/context) support
 - Automatic panic recovery
-- [No dependencies](https://pkg.go.dev/chebyrash/promise?tab=imports)
+- [No dependencies](https://pkg.go.dev/github.com/chebyrash/promise?tab=imports)
 - Generics support
 
 ## Install
