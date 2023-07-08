@@ -6,17 +6,60 @@ import (
 	"testing"
 	"time"
 
+	"github.com/panjf2000/ants/v2"
+	conc "github.com/sourcegraph/conc/pool"
 	"github.com/stretchr/testify/require"
 )
 
-var errExpected = errors.New("expected error")
-var ctx = context.Background()
+var (
+	ctx         = context.Background()
+	errExpected = errors.New("expected error")
+)
 
 func TestNew(t *testing.T) {
 	p := New(func(resolve func(any), reject func(error)) {
 		resolve(nil)
 	})
 	require.NotNil(t, p)
+}
+
+func TestNewWithPool(t *testing.T) {
+	tests := []struct {
+		name string
+		pool Pool
+	}{
+		{
+			name: "default",
+			pool: newDefaultPool(),
+		},
+		{
+			name: "conc",
+			pool: func() Pool {
+				return FromConcPool(conc.New())
+			}(),
+		},
+		{
+			name: "ants",
+			pool: func() Pool {
+				antsPool, err := ants.NewPool(0)
+				require.NoError(t, err)
+				return FromAntsPool(antsPool)
+			}(),
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			p := NewWithPool(func(resolve func(string), reject func(error)) {
+				resolve(test.name)
+			}, test.pool)
+
+			val, err := p.Await(ctx)
+			require.NoError(t, err)
+			require.NotNil(t, val)
+			require.Equal(t, test.name, *val)
+		})
+	}
 }
 
 func TestPromise_Then(t *testing.T) {

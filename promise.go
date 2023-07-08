@@ -15,8 +15,15 @@ type Promise[T any] struct {
 }
 
 func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] {
+	return NewWithPool(executor, defaultPool)
+}
+
+func NewWithPool[T any](executor func(resolve func(T), reject func(error)), pool Pool) *Promise[T] {
 	if executor == nil {
-		panic("missing executor")
+		panic("executor is nil")
+	}
+	if pool == nil {
+		panic("pool is nil")
 	}
 
 	p := &Promise[T]{
@@ -26,10 +33,10 @@ func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] 
 		once:  sync.Once{},
 	}
 
-	go func() {
+	pool.Go(func() {
 		defer p.handlePanic()
 		executor(p.resolve, p.reject)
-	}()
+	})
 
 	return p
 }

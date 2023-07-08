@@ -9,7 +9,10 @@
 
 - First class [context.Context](https://blog.golang.org/context) support
 - Automatic panic recovery
-- [No dependencies](https://pkg.go.dev/github.com/chebyrash/promise?tab=imports)
+- Pool support
+	- [sourcegraph/conc](https://github.com/sourcegraph/conc)
+	- [panjf2000/ants](https://github.com/panjf2000/ants)
+	- Your own!
 - Generics support
 
 ## Install
@@ -44,10 +47,10 @@ func main() {
 	})
 
 	factorial, _ := p1.Await(context.Background())
-	fmt.Println(factorial)
+	fmt.Println(*factorial)
 
 	IP, _ := p2.Await(context.Background())
-	fmt.Println(IP)
+	fmt.Println(*IP)
 }
 
 func findFactorial(n int) int {
@@ -63,8 +66,10 @@ func fetchIP() (string, error) {
 		return "", err
 	}
 
+	defer resp.Body.Close()
+
 	type Response struct {
-	    Origin string `json:"origin"`
+		Origin string `json:"origin"`
 	}
 	var response Response
 
