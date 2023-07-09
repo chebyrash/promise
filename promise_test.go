@@ -66,8 +66,11 @@ func TestPromise_Then(t *testing.T) {
 	p1 := New(func(resolve func(string), reject func(error)) {
 		resolve("Hello, ")
 	})
-	p2 := Then(p1, ctx, func(data string) string {
-		return data + "world!"
+	p2 := Then(p1, ctx, func(data string) (string, error) {
+		return data + "world!", nil
+	})
+	p3 := Then(p2, ctx, func(_ string) (string, error) {
+		return "", errExpected
 	})
 
 	val, err := p1.Await(ctx)
@@ -79,23 +82,20 @@ func TestPromise_Then(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, val)
 	require.Equal(t, "Hello, world!", *val)
+
+	_, err = p3.Await(ctx)
+	require.EqualError(t, err, errExpected.Error())
 }
 
 func TestPromise_Catch(t *testing.T) {
 	p1 := New(func(resolve func(any), reject func(error)) {
 		reject(errExpected)
 	})
-	p2 := Then(p1, ctx, func(data any) any {
-		t.Fatal("should not execute Then")
-		return nil
-	})
 
 	val, err := p1.Await(ctx)
 	require.Error(t, err)
 	require.Equal(t, errExpected, err)
 	require.Nil(t, val)
-
-	p2.Await(ctx)
 }
 
 func TestPromise_Panic(t *testing.T) {

@@ -14,11 +14,16 @@ type Promise[T any] struct {
 	once  sync.Once
 }
 
-func New[T any](executor func(resolve func(T), reject func(error))) *Promise[T] {
+func New[T any](
+	executor func(resolve func(T), reject func(error)),
+) *Promise[T] {
 	return NewWithPool(executor, defaultPool)
 }
 
-func NewWithPool[T any](executor func(resolve func(T), reject func(error)), pool Pool) *Promise[T] {
+func NewWithPool[T any](
+	executor func(resolve func(T), reject func(error)),
+	pool Pool,
+) *Promise[T] {
 	if executor == nil {
 		panic("executor is nil")
 	}
@@ -41,26 +46,59 @@ func NewWithPool[T any](executor func(resolve func(T), reject func(error)), pool
 	return p
 }
 
-func Then[A, B any](p *Promise[A], ctx context.Context, resolve func(A) B) *Promise[B] {
-	return New(func(internalResolve func(B), reject func(error)) {
+func Then[A, B any](
+	p *Promise[A],
+	ctx context.Context,
+	resolve func(A) (B, error),
+) *Promise[B] {
+	return ThenWithPool(p, ctx, resolve, defaultPool)
+}
+
+func ThenWithPool[A, B any](
+	p *Promise[A],
+	ctx context.Context,
+	resolve func(A) (B, error),
+	pool Pool,
+) *Promise[B] {
+	return NewWithPool(func(resolveB func(B), reject func(error)) {
 		result, err := p.Await(ctx)
 		if err != nil {
 			reject(err)
-		} else {
-			internalResolve(resolve(*result))
+			return
 		}
-	})
+
+		resultB, err := resolve(*result)
+		if err != nil {
+			reject(err)
+			return
+		}
+
+		resolveB(resultB)
+	}, pool)
 }
 
-func Catch[T any](p *Promise[T], ctx context.Context, reject func(err error) error) *Promise[T] {
-	return New(func(resolve func(T), internalReject func(error)) {
+func Catch[T any](
+	p *Promise[T],
+	ctx context.Context,
+	reject func(err error) error,
+) *Promise[T] {
+	return CatchWithPool(p, ctx, reject, defaultPool)
+}
+
+func CatchWithPool[T any](
+	p *Promise[T],
+	ctx context.Context,
+	reject func(err error) error,
+	pool Pool,
+) *Promise[T] {
+	return NewWithPool(func(resolve func(T), internalReject func(error)) {
 		result, err := p.Await(ctx)
 		if err != nil {
 			internalReject(reject(err))
 		} else {
 			resolve(*result)
 		}
-	})
+	}, pool)
 }
 
 func (p *Promise[T]) Await(ctx context.Context) (*T, error) {
@@ -101,25 +139,36 @@ func (p *Promise[T]) handlePanic() {
 }
 
 // All resolves when all promises have resolved, or rejects immediately upon any of the promises rejecting
-func All[T any](ctx context.Context, promises ...*Promise[T]) *Promise[[]T] {
+func All[T any](
+	ctx context.Context,
+	promises ...*Promise[T],
+) *Promise[[]T] {
+	return AllWithPool(ctx, defaultPool, promises...)
+}
+
+func AllWithPool[T any](
+	ctx context.Context,
+	pool Pool,
+	promises ...*Promise[T],
+) *Promise[[]T] {
 	if len(promises) == 0 {
 		panic("missing promises")
 	}
 
-	return New(func(resolve func([]T), reject func(error)) {
+	return NewWithPool(func(resolve func([]T), reject func(error)) {
 		resultsChan := make(chan tuple[T, int], len(promises))
 		errsChan := make(chan error, len(promises))
 
 		for idx, p := range promises {
 			idx := idx
-			_ = Then(p, ctx, func(data T) T {
+			_ = ThenWithPool(p, ctx, func(data T) (T, error) {
 				resultsChan <- tuple[T, int]{_1: data, _2: idx}
-				return data
-			})
-			_ = Catch(p, ctx, func(err error) error {
+				return data, nil
+			}, pool)
+			_ = CatchWithPool(p, ctx, func(err error) error {
 				errsChan <- err
 				return err
-			})
+			}, pool)
 		}
 
 		results := make([]T, len(promises))
@@ -133,28 +182,39 @@ func All[T any](ctx context.Context, promises ...*Promise[T]) *Promise[[]T] {
 			}
 		}
 		resolve(results)
-	})
+	}, pool)
 }
 
 // Race resolves or rejects as soon as any one of the promises resolves or rejects
-func Race[T any](ctx context.Context, promises ...*Promise[T]) *Promise[T] {
+func Race[T any](
+	ctx context.Context,
+	promises ...*Promise[T],
+) *Promise[T] {
+	return RaceWithPool(ctx, defaultPool, promises...)
+}
+
+func RaceWithPool[T any](
+	ctx context.Context,
+	pool Pool,
+	promises ...*Promise[T],
+) *Promise[T] {
 	if len(promises) == 0 {
 		panic("missing promises")
 	}
 
-	return New(func(resolve func(T), reject func(error)) {
+	return NewWithPool(func(resolve func(T), reject func(error)) {
 		valsChan := make(chan T, len(promises))
 		errsChan := make(chan error, len(promises))
 
 		for _, p := range promises {
-			_ = Then(p, ctx, func(data T) T {
+			_ = ThenWithPool(p, ctx, func(data T) (T, error) {
 				valsChan <- data
-				return data
-			})
-			_ = Catch(p, ctx, func(err error) error {
+				return data, nil
+			}, pool)
+			_ = CatchWithPool(p, ctx, func(err error) error {
 				errsChan <- err
 				return err
-			})
+			}, pool)
 		}
 
 		select {
@@ -163,7 +223,7 @@ func Race[T any](ctx context.Context, promises ...*Promise[T]) *Promise[T] {
 		case err := <-errsChan:
 			reject(err)
 		}
-	})
+	}, pool)
 }
 
 type tuple[T1, T2 any] struct {

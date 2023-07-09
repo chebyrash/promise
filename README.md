@@ -9,17 +9,17 @@
 
 - First class [context.Context](https://blog.golang.org/context) support
 - Automatic panic recovery
-- Pool support
+- Generics support
+- Goroutine pool support
 	- [sourcegraph/conc](https://github.com/sourcegraph/conc)
 	- [panjf2000/ants](https://github.com/panjf2000/ants)
 	- Your own!
-- Generics support
 
 ## Install
 
     $ go get github.com/chebyrash/promise
 
-## Usage
+## Quickstart
 ```go
 package main
 
@@ -75,5 +75,41 @@ func fetchIP() (string, error) {
 
 	err = json.NewDecoder(resp.Body).Decode(&response)
 	return response.Origin, err
+}
+```
+
+## Pool
+
+- Promise execution can be dispatched to distinct pools, providing granular control over task distribution and concurrency.
+
+- Better performance can be achieved by allowing different stages of a Promise chain to be executed on different goroutine pools, optimizing for the specific requirements of each task.
+
+```go
+package main
+
+import (
+	"context"
+
+	"github.com/chebyrash/promise"
+)
+
+func main() {
+	ctx := context.Background()
+
+	// fetches data from API, runs on ioOptimizedPool
+	dataPromise := promise.NewWithPool(func(resolve func(string), reject func(error)) {
+		data, err := fetchDataFromAPI()
+		if err != nil {
+			reject(err)
+		} else {
+			resolve(data)
+		}
+	}, ioOptimizedPool)
+
+	// computes result based on the fetched data, runs on cpuOptimizedPool
+	resultPromise := promise.ThenWithPool(dataPromise, ctx, func(data string) (string, error) {
+		result, err := computeResult(data)
+		return result, err
+	}, cpuOptimizedPool)
 }
 ```
