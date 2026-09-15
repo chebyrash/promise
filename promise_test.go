@@ -56,8 +56,7 @@ func TestNewWithPool(t *testing.T) {
 
 			val, err := p.Await(ctx)
 			require.NoError(t, err)
-			require.NotNil(t, val)
-			require.Equal(t, test.name, *val)
+			require.Equal(t, test.name, val)
 		})
 	}
 }
@@ -66,22 +65,20 @@ func TestPromise_Then(t *testing.T) {
 	p1 := New(func(resolve func(string), reject func(error)) {
 		resolve("Hello, ")
 	})
-	p2 := Then(p1, ctx, func(data string) (string, error) {
+	p2 := p1.Then(ctx, func(data string) (string, error) {
 		return data + "world!", nil
 	})
-	p3 := Then(p2, ctx, func(_ string) (string, error) {
+	p3 := p2.Then(ctx, func(_ string) (string, error) {
 		return "", errExpected
 	})
 
 	val, err := p1.Await(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, val)
-	require.Equal(t, "Hello, ", *val)
+	require.Equal(t, "Hello, ", val)
 
 	val, err = p2.Await(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, val)
-	require.Equal(t, "Hello, world!", *val)
+	require.Equal(t, "Hello, world!", val)
 
 	_, err = p3.Await(ctx)
 	require.EqualError(t, err, errExpected.Error())
@@ -95,7 +92,7 @@ func TestPromise_Catch(t *testing.T) {
 	val, err := p1.Await(ctx)
 	require.Error(t, err)
 	require.Equal(t, errExpected, err)
-	require.Nil(t, val)
+	require.Zero(t, val)
 }
 
 func TestPromise_Panic(t *testing.T) {
@@ -109,12 +106,12 @@ func TestPromise_Panic(t *testing.T) {
 	val, err := p1.Await(ctx)
 	require.Error(t, err)
 	require.Equal(t, errors.New("random error"), err)
-	require.Nil(t, val)
+	require.Zero(t, val)
 
 	val, err = p2.Await(ctx)
 	require.Error(t, err)
 	require.ErrorIs(t, err, errExpected)
-	require.Nil(t, val)
+	require.Zero(t, val)
 }
 
 func TestAll_Happy(t *testing.T) {
@@ -132,8 +129,7 @@ func TestAll_Happy(t *testing.T) {
 
 	val, err := p.Await(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, val)
-	require.Equal(t, []string{"one", "two", "three"}, *val)
+	require.Equal(t, []string{"one", "two", "three"}, val)
 }
 
 func TestAll_ContainsRejected(t *testing.T) {
@@ -152,7 +148,7 @@ func TestAll_ContainsRejected(t *testing.T) {
 	val, err := p.Await(ctx)
 	require.Error(t, err)
 	require.ErrorIs(t, err, errExpected)
-	require.Nil(t, val)
+	require.Zero(t, val)
 }
 
 func TestAll_OnlyRejected(t *testing.T) {
@@ -171,7 +167,7 @@ func TestAll_OnlyRejected(t *testing.T) {
 	val, err := p.Await(ctx)
 	require.Error(t, err)
 	require.ErrorIs(t, err, errExpected)
-	require.Nil(t, val)
+	require.Zero(t, val)
 }
 
 func TestRace_Happy(t *testing.T) {
@@ -188,8 +184,7 @@ func TestRace_Happy(t *testing.T) {
 
 	val, err := p.Await(ctx)
 	require.NoError(t, err)
-	require.NotNil(t, val)
-	require.Equal(t, "faster", *val)
+	require.Equal(t, "faster", val)
 }
 
 func TestRace_ContainsRejected(t *testing.T) {
@@ -206,7 +201,7 @@ func TestRace_ContainsRejected(t *testing.T) {
 	val, err := p.Await(ctx)
 	require.Error(t, err)
 	require.ErrorIs(t, err, errExpected)
-	require.Nil(t, val)
+	require.Zero(t, val)
 }
 
 func TestRace_OnlyRejected(t *testing.T) {
@@ -222,5 +217,5 @@ func TestRace_OnlyRejected(t *testing.T) {
 	val, err := p.Await(ctx)
 	require.Error(t, err)
 	require.ErrorIs(t, err, errExpected)
-	require.Nil(t, val)
+	require.Zero(t, val)
 }

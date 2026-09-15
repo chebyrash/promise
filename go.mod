@@ -1,6 +1,6 @@
 module github.com/chebyrash/promise
 
-go 1.19
+go 1.27.0
 
 require (
 	github.com/panjf2000/ants/v2 v2.8.1
